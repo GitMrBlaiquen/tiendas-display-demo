@@ -5,10 +5,10 @@ const app = express();
 app.use(express.static(path.join(__dirname, "public")));
 
 app.get("/health", (req, res) => {
-  res.json({ ok: true, time: new Date().toISOString() });
+  res.json({ ok: true });
 });
 
 const PORT = process.env.PORT || 10000;
 app.listen(PORT, "0.0.0.0", () => {
-  console.log("✅ Display demo activo en puerto", PORT);
+  console.log("🟢 Display demo activo en puerto", PORT);
 });
