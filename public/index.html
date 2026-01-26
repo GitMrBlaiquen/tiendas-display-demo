@@ -2,111 +2,93 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Display Sensor</title>
+
   <style>
     * { box-sizing: border-box; }
-    body{
-      margin:0;
+
+    body {
+      margin: 0;
+      background: #000;
+      color: #fff;
       font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
-      background:#0A2342;
-      color:#fff;
-      height:100vh;
-      display:flex;
-      align-items:center;
-      justify-content:center;
-      padding:24px;
+      height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
     }
-    .wrap{ width:100%; max-width:1200px; text-align:center; }
-    .sn{
-      font-size: clamp(18px, 3vw, 38px);
-      opacity:.9;
-      margin-bottom: 18px;
+
+    .wrap {
+      width: 100%;
+      text-align: center;
+      padding: 20px;
+    }
+
+    .line {
+      font-size: clamp(60px, 10vw, 160px);
+      font-weight: 900;
+      margin: 20px 0;
+    }
+
+    .entrada { color: #4DA9FF; }
+    .salida  { color: #FF6B6B; }
+
+    .sn {
+      margin-top: 30px;
+      font-size: clamp(16px, 3vw, 36px);
+      opacity: 0.85;
       word-break: break-all;
     }
-    .grid{
-      display:grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 22px;
-    }
-    .card{
-      background: rgba(255,255,255,.10);
-      border: 4px solid rgba(255,255,255,.18);
-      border-radius: 18px;
-      padding: 26px 18px;
-    }
-    .label{
-      font-size: clamp(18px, 2.6vw, 32px);
-      opacity:.9;
-      margin-bottom: 10px;
-      letter-spacing: 1px;
-    }
-    .value{
-      font-size: clamp(64px, 10vw, 140px);
-      font-weight: 900;
-      line-height: 1;
-    }
-    .status{
-      margin-top: 18px;
-      opacity:.85;
-      font-size: clamp(14px, 2vw, 20px);
-    }
-    @media (max-width: 720px){
-      .grid{ grid-template-columns: 1fr; }
+
+    .status {
+      margin-top: 12px;
+      font-size: clamp(14px, 2vw, 22px);
+      opacity: 0.7;
     }
   </style>
 </head>
+
 <body>
   <div class="wrap">
-    <div class="sn" id="snText">SN: ...</div>
+    <div class="line entrada" id="entradas">ENTRADAS: 00</div>
+    <div class="line salida" id="salidas">SALIDAS: 00</div>
 
-    <div class="grid">
-      <div class="card">
-        <div class="label">ENTRADAS</div>
-        <div class="value" id="inVal">0</div>
-      </div>
-
-      <div class="card">
-        <div class="label">SALIDAS</div>
-        <div class="value" id="outVal">0</div>
-      </div>
-    </div>
-
+    <div class="sn" id="snText">SN: 221000002507152508</div>
     <div class="status" id="status">Conectando...</div>
   </div>
 
   <script>
-    // Server principal (tu Render actual)
-    const MAIN_API_BASE = "https://sensor-server-54ak.onrender.com";
+    // 🔗 TU SERVER PRINCIPAL
+    const API_BASE = "https://sensor-server-54ak.onrender.com";
 
-    // SN fijo (1 SN por link demo)
+    // 🆔 SN DEMO
     const SN = "221000002507152508";
 
-    const snText = document.getElementById("snText");
-    const inVal = document.getElementById("inVal");
-    const outVal = document.getElementById("outVal");
-    const status = document.getElementById("status");
+    const entradasEl = document.getElementById("entradas");
+    const salidasEl  = document.getElementById("salidas");
+    const statusEl   = document.getElementById("status");
 
-    snText.textContent = "SN: " + SN;
+    async function update() {
+      try {
+        const res = await fetch(`${API_BASE}/api/display?sn=${SN}`, {
+          cache: "no-store"
+        });
+        if (!res.ok) throw new Error(res.status);
 
-    async function tick(){
-      try{
-        const url = `${MAIN_API_BASE}/api/display?sn=${encodeURIComponent(SN)}`;
-        const res = await fetch(url, { cache: "no-store" });
-        if(!res.ok) throw new Error("HTTP " + res.status);
         const data = await res.json();
 
-        inVal.textContent = Number(data.entradas || 0);
-        outVal.textContent = Number(data.salidas || 0);
+        entradasEl.textContent = `ENTRADAS: ${String(data.entradas || 0).padStart(2,"0")}`;
+        salidasEl.textContent  = `SALIDAS: ${String(data.salidas || 0).padStart(2,"0")}`;
 
-        status.textContent = "Actualizado: " + new Date().toLocaleTimeString();
-      }catch(e){
-        status.textContent = "Sin datos / error: " + e.message;
+        statusEl.textContent = "Actualizado: " + new Date().toLocaleTimeString();
+      } catch (err) {
+        statusEl.textContent = "Sin conexión / esperando datos";
       }
     }
 
-    tick();
-    setInterval(tick, 2000);
+    update();
+    setInterval(update, 2000);
   </script>
 </body>
 </html>
