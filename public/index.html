@@ -6,56 +6,53 @@
   <title>Display Sensor</title>
   <style>
     * { box-sizing: border-box; }
-    body {
-      margin: 0;
+    body{
+      margin:0;
       font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
-      background: #0A2342;
-      color: white;
-      height: 100vh;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      padding: 24px;
+      background:#0A2342;
+      color:#fff;
+      height:100vh;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      padding:24px;
     }
-    .wrap {
-      width: 100%;
-      max-width: 1100px;
-      text-align: center;
-    }
-    .sn {
-      font-size: clamp(18px, 3vw, 34px);
-      opacity: 0.9;
+    .wrap{ width:100%; max-width:1200px; text-align:center; }
+    .sn{
+      font-size: clamp(18px, 3vw, 38px);
+      opacity:.9;
       margin-bottom: 18px;
       word-break: break-all;
     }
-    .grid {
-      display: grid;
+    .grid{
+      display:grid;
       grid-template-columns: 1fr 1fr;
       gap: 22px;
     }
-    .card {
-      background: rgba(255,255,255,0.10);
-      border: 4px solid rgba(255,255,255,0.18);
+    .card{
+      background: rgba(255,255,255,.10);
+      border: 4px solid rgba(255,255,255,.18);
       border-radius: 18px;
       padding: 26px 18px;
     }
-    .label {
-      font-size: clamp(18px, 2.6vw, 30px);
-      opacity: 0.9;
+    .label{
+      font-size: clamp(18px, 2.6vw, 32px);
+      opacity:.9;
       margin-bottom: 10px;
+      letter-spacing: 1px;
     }
-    .value {
-      font-size: clamp(56px, 9vw, 120px);
+    .value{
+      font-size: clamp(64px, 10vw, 140px);
       font-weight: 900;
       line-height: 1;
     }
-    .small {
+    .status{
       margin-top: 18px;
-      opacity: 0.8;
+      opacity:.85;
       font-size: clamp(14px, 2vw, 20px);
     }
-    @media (max-width: 700px) {
-      .grid { grid-template-columns: 1fr; }
+    @media (max-width: 720px){
+      .grid{ grid-template-columns: 1fr; }
     }
   </style>
 </head>
@@ -75,11 +72,14 @@
       </div>
     </div>
 
-    <div class="small" id="status">Conectando...</div>
+    <div class="status" id="status">Conectando...</div>
   </div>
 
   <script>
-    // 👇 PON AQUÍ EL SN QUE QUIERES MOSTRAR EN ESTA PANTALLA
+    // 🔴 1) LINK DEL SERVER PRINCIPAL (Render)
+    const MAIN_API_BASE = "https://TU-SERVER-PRINCIPAL.onrender.com";
+
+    // 🔴 2) SN FIJO (1 SN por link demo)
     const SN = "221000002507152508";
 
     const snText = document.getElementById("snText");
@@ -89,18 +89,18 @@
 
     snText.textContent = "SN: " + SN;
 
-    async function tick() {
-      try {
-        const res = await fetch(`/api/display?sn=${encodeURIComponent(SN)}`);
-        if (!res.ok) throw new Error("HTTP " + res.status);
+    async function tick(){
+      try{
+        const url = `${MAIN_API_BASE}/api/display?sn=${encodeURIComponent(SN)}`;
+        const res = await fetch(url, { cache: "no-store" });
+        if(!res.ok) throw new Error("HTTP " + res.status);
         const data = await res.json();
 
         inVal.textContent = Number(data.entradas || 0);
         outVal.textContent = Number(data.salidas || 0);
 
-        const now = new Date().toLocaleTimeString();
-        status.textContent = "Actualizado: " + now;
-      } catch (e) {
+        status.textContent = "Actualizado: " + new Date().toLocaleTimeString();
+      }catch(e){
         status.textContent = "Sin datos / error: " + e.message;
       }
     }
