@@ -51,8 +51,8 @@
 
 <body>
   <div class="wrap">
-    <div class="line entrada" id="entradas">Florencia Y Nathaly</div>
-    <div class="line salida" id="salidas">Hagan caso!</div>
+    <div class="line entrada" id="entradas">ENTRADA</div>
+    <div class="line salida" id="salidas">SALIDA</div>
 
     <div class="sn" id="snText">SN: 221000002507152508</div>
     <div class="status" id="status">Conectando...</div>
@@ -78,8 +78,8 @@
 
         const data = await res.json();
 
-        entradasEl.textContent = `Nathaly y Florencia ${String(data.entradas || 0).padStart(2,"0")}`;
-        salidasEl.textContent  = `Hagan caso!!!: ${String(data.salidas || 0).padStart(2,"0")}`;
+        entradasEl.textContent = `ENTRADAS ${String(data.entradas || 0).padStart(2,"0")}`;
+        salidasEl.textContent  = `SALIDAS!: ${String(data.salidas || 0).padStart(2,"0")}`;
 
         statusEl.textContent = "Actualizado: " + new Date().toLocaleTimeString();
       } catch (err) {
