@@ -78,8 +78,8 @@
 
         const data = await res.json();
 
-        entradasEl.textContent = `ENTRADAS: ${String(data.entradas || 0).padStart(2,"0")}`;
-        salidasEl.textContent  = `SALIDAS: ${String(data.salidas || 0).padStart(2,"0")}`;
+        entradasEl.textContent = `Nathaly y Florencia ${String(data.entradas || 0).padStart(2,"0")}`;
+        salidasEl.textContent  = `Hagan caso!!!: ${String(data.salidas || 0).padStart(2,"0")}`;
 
         statusEl.textContent = "Actualizado: " + new Date().toLocaleTimeString();
       } catch (err) {
