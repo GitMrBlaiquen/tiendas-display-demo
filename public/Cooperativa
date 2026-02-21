@@ -1,41 +1,118 @@
-// ✅ TV TOKENS (públicos pero difíciles de adivinar)
-const TV_TOKENS = {
-  // token: { label: "Nombre para mostrar", stores: ["storeId1","storeId2"] }
-  "AB12x9KQ": { label: "Cliente Arrow", stores: ["arrow-01", "arrow-02", "arrow-03"] },
-  "LNS9pQ77": { label: "Cliente Leonisa", stores: ["leonisa-01", "leonisa-02", "leonisa-03", "leonisa-04"] },
-};
+const BASE_URL = window.location.origin;
 
+const tvGrid = document.getElementById("tvGrid");
 
+let stores = [];
+let charts = {};
 
+function getTokenFromPath() {
+  // /tv/AB12x9KQ  -> AB12x9KQ
+  const parts = window.location.pathname.split("/").filter(Boolean);
+  const i = parts.indexOf("tv");
+  return i >= 0 ? (parts[i + 1] || "") : "";
+}
 
-Despues
+async function fetchTvConfig(token) {
+  const res = await fetch(`${BASE_URL}/api/tv/config?token=${encodeURIComponent(token)}`);
+  if (!res.ok) {
+    const msg = await res.text().catch(() => "");
+    throw new Error(msg || `No se pudo cargar TV config (${res.status})`);
+  }
+  return res.json();
+}
 
+function createCard(store) {
+  const card = document.createElement("div");
+  card.className = "card";
+  card.innerHTML = `
+    <h3>${store.name}</h3>
+    <canvas id="chart-${store.id}"></canvas>
+  `;
+  tvGrid.appendChild(card);
+}
 
+function renderChart(storeId, counters) {
+  const canvas = document.getElementById(`chart-${storeId}`);
+  if (!canvas) return;
 
-app.get("/api/tv/config", (req, res) => {
-  const token = String(req.query.token || "").trim();
-  if (!token) return res.status(400).json({ error: "Falta token" });
+  const ctx = canvas.getContext("2d");
 
-  const cfg = TV_TOKENS[token];
-  if (!cfg) return res.status(404).json({ error: "Token inválido" });
+  const data = [
+    Number(counters.entradas || 0),
+    Number(counters.salidas || 0),
+    Number(counters.inChild || 0),
+    Number(counters.outChild || 0),
+    Number(counters.workersIn || 0),
+  ];
 
-  const list = (cfg.stores || [])
-    .map((id) => stores[id])
-    .filter(Boolean)
-    .map((s) => ({ id: s.id, name: s.name || s.id }));
+  if (charts[storeId]) {
+    charts[storeId].data.datasets[0].data = data;
+    charts[storeId].update();
+    return;
+  }
 
-  return res.json({
-    ok: true,
-    label: cfg.label || "SmartCountify",
-    stores: list,
+  charts[storeId] = new Chart(ctx, {
+    type: "doughnut",
+    data: {
+      labels: ["Entradas", "Salidas", "Niños In", "Niños Out", "Empleados"],
+      datasets: [
+        {
+          data,
+          backgroundColor: ["#4CAF50", "#F44336", "#FF9800", "#2196F3", "#9C27B0"],
+        },
+      ],
+    },
+    options: {
+      responsive: true,
+      plugins: { legend: { position: "left" } },
+    },
   });
-});
+}
 
+async function updateAll() {
+  for (const store of stores) {
+    try {
+      const res = await fetch(`${BASE_URL}/api/store/counters?storeId=${encodeURIComponent(store.id)}`);
+      if (!res.ok) continue;
+      const data = await res.json();
+      renderChart(store.id, data);
+    } catch {
+      // no rompas toda la TV por 1 tienda
+    }
+  }
+}
 
-Despues
+function startClock() {
+  const clock = document.getElementById("clock");
+  setInterval(() => {
+    clock.textContent = new Date().toLocaleString("es-CL");
+  }, 1000);
+}
 
+async function init() {
+  const token = getTokenFromPath();
+  if (!token) {
+    tvGrid.innerHTML = "<div class='card'><h3>Falta token</h3><p>Usa /tv/TOKEN</p></div>";
+    return;
+  }
 
+  const cfg = await fetchTvConfig(token);
 
-app.get("/tv/:token", (req, res) => {
-  return res.sendFile(path.join(__dirname, "public", "tv.html"));
+  // opcional: cambia el título visual
+  document.title = cfg.label || "SmartCountify TV";
+  const headerTitle = document.querySelector(".header h1");
+  if (headerTitle) headerTitle.textContent = cfg.label || "SmartCountify TV";
+
+  stores = cfg.stores || [];
+
+  tvGrid.innerHTML = "";
+  stores.forEach((s) => createCard(s));
+
+  await updateAll();
+  setInterval(updateAll, 5000);
+  startClock();
+}
+
+init().catch((e) => {
+  tvGrid.innerHTML = `<div class='card'><h3>Error</h3><p>${e.message}</p></div>`;
 });
