@@ -1,1 +1,290 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SmartCountify TV</title>
 
+  <link rel="stylesheet" href="/tv.css" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+
+<body class="tv-body">
+
+  <!-- ✅ TÍTULO CENTRADO ARRIBA -->
+  <header class="tv-top">
+    <h1 class="tv-title">Contador de Personas Por Tiendas</h1>
+  </header>
+
+  <!-- ✅ GRID 4x3 -->
+  <main class="tv-main">
+    <section id="tvGrid" class="tv-grid" aria-label="Grid de tiendas"></section>
+  </main>
+
+  <!-- ✅ FOOTER: Cliente + Hora (izquierda), Logo grande (derecha) -->
+  <footer class="tv-footer">
+    <div class="tv-footer-left">
+      <div class="tv-client" id="tvClient">Cliente: —</div>
+      <div class="tv-time" id="tvClock">—</div>
+    </div>
+
+    <div class="tv-client-logo-wrap">
+      <img id="tvClientLogo" class="tv-client-logo" alt="Logo cliente" />
+    </div>
+  </footer>
+
+  <!-- ✅ Overlay de error (lo usa tv.js) -->
+  <section id="tvError" class="tv-error" style="display:none;">
+    <div class="tv-error-box">
+      <h2 id="tvErrorTitle">Error</h2>
+      <p id="tvErrorMsg"></p>
+    </div>
+  </section>
+
+  <script src="/tv.js"></script>
+</body>
+</html>
+
+
+:root{
+  --bg: #f3f4f6;
+  --card: rgba(255,255,255,0.85);
+  --ink: #0A2342;
+  --muted: rgba(10,35,66,0.65);
+  --shadow: 0 10px 24px rgba(0,0,0,0.06);
+  --radius: 14px;
+}
+
+*{ box-sizing: border-box; }
+
+.tv-body{
+  margin: 0;
+  font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+  background: var(--bg);
+  color: var(--ink);
+
+  min-height: 100vh;
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+}
+
+/* ----------------------------
+   TOP
+---------------------------- */
+.tv-top{
+  padding: 18px 26px 6px;
+}
+
+.tv-title{
+  margin: 0;
+  text-align: center;
+  font-size: 34px;
+  font-weight: 900;
+  letter-spacing: 0.2px;
+}
+
+/* ----------------------------
+   MAIN / GRID
+   ✅ bajamos las tarjetas
+---------------------------- */
+.tv-main{
+  padding: 26px 26px 10px; /* antes era 10px arriba */
+}
+
+/* ✅ 4 por fila (12 total = 3 filas) */
+.tv-grid{
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 18px;
+}
+
+/* ✅ tv.js crea .store-card */
+.store-card{
+  background: var(--card);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 12px;
+  overflow: hidden;
+
+  height: 255px; /* fijo => sin parpadeo */
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+}
+
+.store-card.is-empty{
+  opacity: 0.55;
+}
+
+/* Header de card */
+.store-head{
+  margin-bottom: 6px;
+}
+
+.store-name{
+  font-weight: 900;
+  font-size: 16px;
+  margin: 2px 0 2px;
+  color: var(--ink);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.store-sub{
+  font-size: 12px;
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Body: donut + stats */
+.store-body{
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  align-items: center;
+  min-height: 0;
+}
+
+.store-chart{
+  position: relative;
+  height: 170px; /* fijo */
+  width: 100%;
+}
+
+.store-chart canvas{
+  width: 100% !important;
+  height: 100% !important;
+}
+
+/* Stats */
+.store-stats{
+  display: grid;
+  gap: 6px;
+  font-size: 13px;
+}
+
+.stat-row{
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 3px 6px;
+  border-radius: 10px;
+  background: rgba(255,255,255,0.55);
+  border: 1px solid rgba(0,0,0,0.04);
+}
+
+.stat-row span:first-child{
+  color: rgba(10,35,66,.80);
+  font-weight: 800;
+}
+
+.stat-row span:last-child{
+  font-weight: 900;
+}
+
+/* Footer de card */
+.store-foot{
+  margin-top: 8px;
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.pill{
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 900;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(10,35,66,0.08);
+  color: rgba(10,35,66,.90);
+  border: 1px solid rgba(10,35,66,0.08);
+}
+
+.pill-off{
+  background: rgba(0,0,0,0.06);
+  border-color: rgba(0,0,0,0.06);
+  color: rgba(0,0,0,0.55);
+}
+
+/* ----------------------------
+   FOOTER (Cliente + Hora abajo)
+---------------------------- */
+.tv-footer{
+  padding: 12px 26px 18px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+}
+
+.tv-footer-left{
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 280px;
+}
+
+.tv-client{
+  font-weight: 950;
+  font-size: 20px;
+}
+
+.tv-time{
+  font-size: 14px;
+  color: var(--muted);
+  font-weight: 850;
+}
+
+.tv-client-logo-wrap{
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  flex: 1;
+}
+
+.tv-client-logo{
+  height: 64px; /* ✅ más grande */
+  width: auto;
+  object-fit: contain;
+  display: none; /* tv.js lo prende */
+}
+
+/* ----------------------------
+   Error overlay
+---------------------------- */
+.tv-error{
+  position: fixed;
+  inset: 0;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0,0,0,0.35);
+  z-index: 9999;
+}
+
+.tv-error-box{
+  background: rgba(255,255,255,0.95);
+  border-radius: 16px;
+  box-shadow: 0 20px 50px rgba(0,0,0,0.20);
+  padding: 18px 18px;
+  width: min(520px, calc(100vw - 40px));
+}
+
+.tv-error-box h2{
+  margin: 0 0 8px;
+  font-size: 18px;
+  font-weight: 950;
+  color: var(--ink);
+}
+
+.tv-error-box p{
+  margin: 0;
+  color: rgba(10,35,66,.75);
+  font-weight: 700;
+  white-space: pre-line;
+}
