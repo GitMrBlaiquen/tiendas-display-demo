@@ -12,8 +12,20 @@ async function loadConfigAndBuild() {
 
   const cfg = await fetchJson(`${CONFIG_URL}?token=${encodeURIComponent(token)}`);
   const label = cfg?.label || "SmartCountify";
+  const logo = String(cfg?.logo || "").trim(); // ✅ nuevo
 
   if (tvClient) tvClient.textContent = `Cliente: ${label}`;
+
+  // ✅ Logo dinámico
+  if (typeof tvClientLogo !== "undefined" && tvClientLogo) {
+    if (logo) {
+      tvClientLogo.src = logo;
+      tvClientLogo.style.display = "block";
+    } else {
+      tvClientLogo.removeAttribute("src");
+      tvClientLogo.style.display = "none";
+    }
+  }
 
   const list = Array.isArray(cfg?.stores) ? cfg.stores : [];
   if (!list.length) {
