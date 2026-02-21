@@ -1,68 +1,41 @@
-<!DOCTYPE html>
-<html lang="es">
-<head>
-<meta charset="UTF-8" />
-<title>SmartCountify TV</title>
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+// ✅ TV TOKENS (públicos pero difíciles de adivinar)
+const TV_TOKENS = {
+  // token: { label: "Nombre para mostrar", stores: ["storeId1","storeId2"] }
+  "AB12x9KQ": { label: "Cliente Arrow", stores: ["arrow-01", "arrow-02", "arrow-03"] },
+  "LNS9pQ77": { label: "Cliente Leonisa", stores: ["leonisa-01", "leonisa-02", "leonisa-03", "leonisa-04"] },
+};
 
-<style>
-body{
-  margin:0;
-  font-family: system-ui, -apple-system, sans-serif;
-  background:#f4f6f9;
-}
 
-.header{
-  display:flex;
-  justify-content:space-between;
-  align-items:center;
-  padding:20px 40px;
-  background:white;
-  box-shadow:0 2px 8px rgba(0,0,0,0.08);
-}
 
-.header h1{
-  margin:0;
-  font-size:28px;
-}
 
-d
+Despues
 
-.grid{
-  display:grid;
-  grid-template-columns: repeat(auto-fill, minmax(350px,1fr));
-  gap:30px;
-  padding:40px;
-}
 
-.card{
-  background:white;
-  border-radius:16px;
-  padding:20px;
-  box-shadow:0 6px 18px rgba(0,0,0,0.08);
-  text-align:center;
-}
 
-.card h3{
-  margin-bottom:15px;
-  font-size:18px;
-}
+app.get("/api/tv/config", (req, res) => {
+  const token = String(req.query.token || "").trim();
+  if (!token) return res.status(400).json({ error: "Falta token" });
 
-canvas{
-  max-height:280px;
-}
-</style>
-</head>
+  const cfg = TV_TOKENS[token];
+  if (!cfg) return res.status(404).json({ error: "Token inválido" });
 
-<body>
+  const list = (cfg.stores || [])
+    .map((id) => stores[id])
+    .filter(Boolean)
+    .map((s) => ({ id: s.id, name: s.name || s.id }));
 
-<div class="header">
-  <h1>Contador de Personas por Tiendas</h1>
-  <div id="clock"></div>
-</div>
+  return res.json({
+    ok: true,
+    label: cfg.label || "SmartCountify",
+    stores: list,
+  });
+});
 
-<div id="tvGrid" class="grid"></div>
 
-<script src="tv.js"></script>
-</body>
-</html>
+Despues
+
+
+
+app.get("/tv/:token", (req, res) => {
+  return res.sendFile(path.join(__dirname, "public", "tv.html"));
+});
