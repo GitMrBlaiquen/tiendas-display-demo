@@ -1,998 +1,242 @@
-// server.js (reescrito + persistencia en JSON)
-// - Mantiene TODO lo anterior: frontend, login, counters/history, status/heartbeat, normalizeCounts, export CSV
-// -  NUEVO: guarda contadores en /data/counters.json (auto-save) y los recupera al iniciar
-// -  NUEVO: retención opcional de 21 días para daily/hourly (para que no crezca infinito)
-// -  ✅ NUEVO: Export Excel (.xlsx) profesional (1 hoja) sin romper CSV
-// -  ✅ NUEVO PARCHE: "LIVE" se reinicia automáticamente al cambiar el día (sin perder historial)
-// - Puerto final: 3000
+// SmartCountify TV
+// - Sin login (solo token en URL /tv/:token)
+// - Config: /api/tv/config?token=...
+// - Datos LIVE: /api/store/counters?storeId=...
 
-const express = require("express");
-const cors = require("cors");
-const path = require("path");
-const fs = require("fs");
-const fsp = require("fs/promises");
+const BASE_URL = window.location.origin;
+const CONFIG_URL = `${BASE_URL}/api/tv/config`;
+const COUNTERS_URL = `${BASE_URL}/api/store/counters`;
 
-// ✅ NUEVO: Excel
-const ExcelJS = require("exceljs");
+const tvGrid = document.getElementById("tvGrid");
+const tvClient = document.getElementById("tvClient");
+const tvClock = document.getElementById("tvClock");
 
-const app = express();
+const tvError = document.getElementById("tvError");
+const tvErrorTitle = document.getElementById("tvErrorTitle");
+const tvErrorMsg = document.getElementById("tvErrorMsg");
 
-// ---------------- MIDDLEWARES ----------------
-app.use(cors());
-app.use(express.json({ limit: "2mb" }));
-app.use(express.urlencoded({ extended: true }));
+const POLL_MS = 2500;
 
-// ---------------- FRONTEND ----------------
-app.use(express.static(path.join(__dirname, "public")));
+const DONUT_LABELS = ["Entrantes", "Niños", "Empleados", "Salientes"]; // similar a la foto
+// OJO: no forzamos colores en CSS, pero Chart.js necesita backgroundColor.
+// Si quieres, lo dejamos con defaults -> pero se verá feo. Usamos colores suaves.
+const DONUT_COLORS = ["#0000CD", "#FFFF00", "#E9967A", "#228B22"];
 
-app.get("/tv", (req, res) => {
-  res.sendFile(path.join(__dirname, "public", "tv.html"));
-});
+function showError(title, msg) {
+  if (tvErrorTitle) tvErrorTitle.textContent = title || "Error";
+  if (tvErrorMsg) tvErrorMsg.textContent = msg || "";
+  if (tvError) tvError.style.display = "flex";
+}
 
-// ✅ FIX: ruta /tv/:token (antes el regex estaba mal escrito y no matcheaba)
-// Acepta solo letras y números
-app.get("/tv/:token([A-Za-z0-9]+)", (req, res) => {
-  return res.sendFile(path.join(__dirname, "public", "tv.html"));
-});
+function hideError() {
+  if (tvError) tvError.style.display = "none";
+}
 
-// ---------------- HEALTH + UPTIME ----------------
-const STARTED_AT = Date.now();
+function pad2(n) {
+  return String(n).padStart(2, "0");
+}
 
-app.get("/health", (req, res) => {
-  res.json({
-    ok: true,
-    time: new Date().toISOString(),
-    uptimeSec: Math.floor((Date.now() - STARTED_AT) / 1000),
+function clockTick() {
+  const d = new Date();
+  const dd = pad2(d.getDate());
+  const mm = pad2(d.getMonth() + 1);
+  const yyyy = d.getFullYear();
+  const hh = pad2(d.getHours());
+  const mi = pad2(d.getMinutes());
+  const ss = pad2(d.getSeconds());
+  if (tvClock) tvClock.textContent = `${dd}-${mm}-${yyyy} ${hh}:${mi}:${ss}`;
+}
+
+function getTokenFromPath() {
+  // /tv/TOKEN
+  const parts = window.location.pathname.split("/").filter(Boolean);
+  // ["tv", "TOKEN"]
+  if (parts.length >= 2 && parts[0] === "tv") return parts[1];
+  return "";
+}
+
+async function fetchJson(url) {
+  const res = await fetch(url, { cache: "no-store" });
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    throw new Error(text || `Error ${res.status}`);
+  }
+  return res.json();
+}
+
+// ---------------------------
+// Render grid
+// ---------------------------
+const storeUi = new Map(); // storeId -> { cardEl, chart, canvasEl, lastDataKey }
+
+function makeStoreCard(store) {
+  const card = document.createElement("article");
+  card.className = "store-card";
+  card.setAttribute("data-storeid", store.id);
+
+  card.innerHTML = `
+    <div class="store-head">
+      <div class="store-name" title="${escapeHtml(store.name || store.id)}">${escapeHtml(store.name || store.id)}</div>
+      <div class="store-sub">${escapeHtml(store.id)}</div>
+    </div>
+
+    <div class="store-body">
+      <div class="store-chart">
+        <canvas></canvas>
+      </div>
+
+      <div class="store-stats">
+        <div class="stat-row"><span>Entrantes</span><span class="v-in">0</span></div>
+        <div class="stat-row"><span>Salientes</span><span class="v-out">0</span></div>
+        <div class="stat-row"><span>Niños</span><span class="v-child">0</span></div>
+        <div class="stat-row"><span>Empleados</span><span class="v-work">0</span></div>
+        <div class="stat-row"><span>Dentro</span><span class="v-instore">0</span></div>
+      </div>
+    </div>
+
+    <div class="store-foot">
+      <span class="pill">LIVE</span>
+      <span class="pill v-updated">—</span>
+    </div>
+  `;
+
+  const canvas = card.querySelector("canvas");
+  const ctx = canvas.getContext("2d");
+
+  const chart = new Chart(ctx, {
+    type: "doughnut",
+    data: {
+      labels: DONUT_LABELS,
+      datasets: [
+        {
+          data: [0, 0, 0, 0],
+          backgroundColor: DONUT_COLORS,
+          borderWidth: 1,
+        },
+      ],
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      cutout: "62%",
+      plugins: {
+        legend: { display: false },
+        tooltip: { enabled: false }, // TV: limpio
+      },
+      animation: false,
+    },
   });
-});
 
-// --------------------------------------------------------------
-// ---------   PÁGINA WEB PARA TELEVISORES   ----------
-//
-// ✅ TV TOKENS (públicos pero difíciles de adivinar)
-const TV_TOKENS = {
-  // token: { label: "Nombre para mostrar", stores: ["storeId1","storeId2"] }
-  AB12x9KQ: { label: "Cliente Arrow", stores: ["arrow-01", "arrow-02", "arrow-03"] },
-  LNS9pQ77: { label: "Cliente Leonisa", stores: ["leonisa-01", "leonisa-02", "leonisa-03", "leonisa-04"] },
-};
+  storeUi.set(store.id, { cardEl: card, chart, canvasEl: canvas, lastDataKey: "" });
+  return card;
+}
 
-app.get("/api/tv/config", (req, res) => {
-  const token = String(req.query.token || "").trim();
-  if (!token) return res.status(400).json({ error: "Falta token" });
+function updateStoreCard(storeId, counters) {
+  const ui = storeUi.get(storeId);
+  if (!ui) return;
 
-  const cfg = TV_TOKENS[token];
-  if (!cfg) return res.status(404).json({ error: "Token inválido" });
+  const entradas = Number(counters?.entradas || 0);
+  const salidas = Number(counters?.salidas || 0);
+  const inChild = Number(counters?.inChild || 0);
+  const workersIn = Number(counters?.workersIn || 0);
+  const dentro = Number(counters?.dentro || Math.max(entradas - salidas, 0));
 
-  const list = (cfg.stores || [])
-    .map((id) => stores[id])
-    .filter(Boolean)
-    .map((s) => ({ id: s.id, name: s.name || s.id }));
+  // dataKey para evitar updates inútiles
+  const dataKey = `${entradas}|${salidas}|${inChild}|${workersIn}|${dentro}`;
+  if (ui.lastDataKey === dataKey) return;
+  ui.lastDataKey = dataKey;
 
-  return res.json({
-    ok: true,
-    label: cfg.label || "SmartCountify",
-    stores: list,
+  // stats
+  ui.cardEl.querySelector(".v-in").textContent = String(entradas);
+  ui.cardEl.querySelector(".v-out").textContent = String(salidas);
+  ui.cardEl.querySelector(".v-child").textContent = String(inChild);
+  ui.cardEl.querySelector(".v-work").textContent = String(workersIn);
+  ui.cardEl.querySelector(".v-instore").textContent = String(dentro);
+
+  // donut: Entrantes, Niños, Empleados, Salientes
+  ui.chart.data.datasets[0].data = [entradas, inChild, workersIn, salidas];
+  ui.chart.update("none");
+
+  // updated time
+  ui.cardEl.querySelector(".v-updated").textContent = new Date().toLocaleTimeString("es-CL", {
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false,
   });
-});
-
-// --------------------------------------------------------------
-// ---------   MODELO EN MEMORIA: USUARIOS Y TIENDAS   ----------
-// --------------------------------------------------------------
-const stores = {
-  "arrow-01": { id: "arrow-01", name: "Tienda Arrow 01" },
-  "arrow-02": { id: "arrow-02", name: "Tienda Arrow 02" },
-  "arrow-03": { id: "arrow-03", name: "Tienda Arrow 03" },
-
-  "leonisa-01": { id: "leonisa-01", name: "Parque Arauco" },
-  "leonisa-02": { id: "leonisa-02", name: "Tienda Leonisa 04" },
-  "leonisa-03": { id: "leonisa-03", name: "Plaza Egaña" },
-  "leonisa-04": { id: "leonisa-04", name: "Tienda Leonisa 03" },
-
-  "test-01": { id: "test-01", name: "Test-01" },
-  "test-02": { id: "test-02", name: "Test-02" },
-  "test-03": { id: "test-03", name: "Test-03" },
-  "test-04": { id: "test-04", name: "Test-04" },
-  "test-05": { id: "test-05", name: "Test-05" },
-};
-
-const users = {
-  Vbecerra: {
-    username: "Vbecerra",
-    password: "v7RIF3P<f]95<e-61nx=",
-    role: "admin",
-    stores: Object.keys(stores),
-  },
-  Rbecerra: {
-    username: "Rbecerra",
-    password: "B6U'0btl!Ot&G_8{+?ft",
-    role: "admin",
-    stores: Object.keys(stores),
-  },
-  Arrow: {
-    username: "Arrow",
-    password: "Arrow57105",
-    role: "dueño",
-    stores: ["arrow-01", "arrow-02", "arrow-03"],
-  },
-  Leonisa: {
-    username: "Leonisa",
-    password: "Leonisa99481",
-    role: "dueño",
-    stores: ["leonisa-01", "leonisa-02", "leonisa-03", "leonisa-04"],
-  },
-  PatricioC: {
-    username: "PatricioC",
-    password: "n4B&aQ=!B9v`9x'q[Q8~",
-    role: "usuario",
-    stores: ["leonisa-01", "leonisa-03", "leonisa-04"],
-  },
-};
-
-// ---------------- LOGIN ----------------
-app.post("/api/login", (req, res) => {
-  const { username, password } = req.body || {};
-
-  if (!username || !password) {
-    return res.status(400).json({ error: "Faltan username o password" });
-  }
-
-  const user = users[username];
-  if (!user || user.password !== password) {
-    return res.status(401).json({ error: "Usuario o contraseña inválidos" });
-  }
-
-  const userStores = (user.stores || []).map((id) => stores[id]).filter(Boolean);
-
-  return res.json({
-    username: user.username,
-    role: user.role,
-    stores: userStores,
-  });
-});
-
-// --------------------------------------------------------------
-// -----------   CONTADOR + HISTORIAL POR TIENDA   --------------
-// --------------------------------------------------------------
-const sensors = {}; // debug últimos payloads
-
-function safeNumber(v, fallback = 0) {
-  const n = Number(v);
-  return Number.isFinite(n) ? n : fallback;
 }
 
-function emptyCounters() {
-  return {
-    totalEntradas: 0,
-    totalSalidas: 0,
-
-    entradas: 0,
-    salidas: 0,
-
-    inChild: 0,
-    outChild: 0,
-    workersIn: 0,
-  };
+function escapeHtml(s) {
+  return String(s ?? "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
 }
 
-const storeCounters = {};
-const dailyCounters = {};
-const hourlyCounters = {};
+// ---------------------------
+// Main
+// ---------------------------
+let storesList = [];
 
-// ✅ NUEVO PARCHE: controla el "día actual" del LIVE por tienda
-// (para resetear storeCounters al cambiar de día, sin perder daily/hourly)
-const liveDayByStore = {};
+async function loadConfigAndRender() {
+  hideError();
 
-// --------------------------------------------------------------
-// ✅ PERSISTENCIA EN JSON (para que NO se borre al reiniciar)
-// --------------------------------------------------------------
-const DATA_DIR = path.join(__dirname, "data");
-const PERSIST_PATH = path.join(DATA_DIR, "counters.json");
-
-const RETENTION_DAYS = 21;
-const AUTOSAVE_MS = 180_000;
-
-let saveTimer = null;
-let isSaving = false;
-let saveQueued = false;
-
-function dateKeyFromTs(ts = Date.now()) {
-  const d = new Date(ts);
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  return `${y}-${m}-${day}`;
-}
-
-function hourKeyFromTs(ts = Date.now()) {
-  const d = new Date(ts);
-  return String(d.getHours()).padStart(2, "0");
-}
-
-function ensureStore(storeId) {
-  if (!storeCounters[storeId]) storeCounters[storeId] = emptyCounters();
-  if (!dailyCounters[storeId]) dailyCounters[storeId] = {};
-  if (!hourlyCounters[storeId]) hourlyCounters[storeId] = {};
-
-  // ✅ NUEVO: si no existe, queda en "hoy"
-  if (!liveDayByStore[storeId]) liveDayByStore[storeId] = dateKeyFromTs(Date.now());
-}
-
-function ensureDay(storeId, dateKey) {
-  ensureStore(storeId);
-
-  if (!dailyCounters[storeId][dateKey]) {
-    dailyCounters[storeId][dateKey] = emptyCounters();
-  }
-
-  if (!hourlyCounters[storeId][dateKey]) {
-    hourlyCounters[storeId][dateKey] = {};
-    for (let h = 0; h < 24; h++) {
-      const hh = String(h).padStart(2, "0");
-      hourlyCounters[storeId][dateKey][hh] = emptyCounters();
-    }
-  }
-}
-
-function dateToMs(dateKey) {
-  const [y, m, d] = String(dateKey || "").split("-").map((x) => Number(x));
-  if (!y || !m || !d) return 0;
-  return new Date(y, m - 1, d).getTime();
-}
-
-function pruneOldData() {
-  const cutoffMs = Date.now() - RETENTION_DAYS * 24 * 60 * 60 * 1000;
-
-  for (const storeId of Object.keys(dailyCounters)) {
-    const dayObj = dailyCounters[storeId] || {};
-    for (const dateKey of Object.keys(dayObj)) {
-      if (dateToMs(dateKey) && dateToMs(dateKey) < cutoffMs) delete dayObj[dateKey];
-    }
-  }
-
-  for (const storeId of Object.keys(hourlyCounters)) {
-    const dayObj = hourlyCounters[storeId] || {};
-    for (const dateKey of Object.keys(dayObj)) {
-      if (dateToMs(dateKey) && dateToMs(dateKey) < cutoffMs) delete dayObj[dateKey];
-    }
-  }
-}
-
-async function atomicWriteJson(filePath, obj) {
-  const tmp = `${filePath}.tmp`;
-  const json = JSON.stringify(obj, null, 2);
-  await fsp.writeFile(tmp, json, "utf8");
-  await fsp.rename(tmp, filePath);
-}
-
-async function loadPersisted() {
-  try {
-    await fsp.mkdir(DATA_DIR, { recursive: true });
-
-    if (!fs.existsSync(PERSIST_PATH)) {
-      console.log("ℹ️ No existe counters.json todavía (ok).");
-      return;
-    }
-
-    const raw = await fsp.readFile(PERSIST_PATH, "utf8");
-    const parsed = JSON.parse(raw);
-
-    const sc = parsed?.storeCounters || {};
-    const dc = parsed?.dailyCounters || {};
-    const hc = parsed?.hourlyCounters || {};
-    const hb = parsed?.lastHeartbeatBySn || {};
-    const ldbs = parsed?.liveDayByStore || {}; // ✅ NUEVO
-
-    for (const k of Object.keys(sc)) storeCounters[k] = sc[k];
-    for (const k of Object.keys(dc)) dailyCounters[k] = dc[k];
-    for (const k of Object.keys(hc)) hourlyCounters[k] = hc[k];
-    for (const k of Object.keys(hb)) lastHeartbeatBySn[k] = hb[k];
-    for (const k of Object.keys(ldbs)) liveDayByStore[k] = ldbs[k]; // ✅ NUEVO
-
-    pruneOldData();
-
-    // ✅ si faltan stores en liveDayByStore, inicializa hoy
-    for (const storeId of Object.keys(storeCounters)) {
-      if (!liveDayByStore[storeId]) liveDayByStore[storeId] = dateKeyFromTs(Date.now());
-    }
-
-    console.log("✅ Persistencia cargada desde data/counters.json");
-  } catch (e) {
-    console.error("⚠️ No se pudo cargar counters.json:", e.message);
-  }
-}
-
-async function savePersistedNow() {
-  if (isSaving) {
-    saveQueued = true;
+  const token = getTokenFromPath();
+  if (!token) {
+    showError("Falta token", "Usa /tv/TOKEN\nEj: https://smartcountify.cl/tv/AB12x9KQ");
     return;
   }
-  isSaving = true;
 
-  try {
-    pruneOldData();
-    await fsp.mkdir(DATA_DIR, { recursive: true });
+  const cfg = await fetchJson(`${CONFIG_URL}?token=${encodeURIComponent(token)}`);
+  const label = cfg?.label || "SmartCountify";
+  storesList = Array.isArray(cfg?.stores) ? cfg.stores : [];
 
-    const payload = {
-      version: 1,
-      savedAt: new Date().toISOString(),
-      storeCounters,
-      dailyCounters,
-      hourlyCounters,
-      lastHeartbeatBySn,
-      liveDayByStore, // ✅ NUEVO
-    };
+  if (tvClient) tvClient.textContent = `Cliente: ${label}`;
 
-    await atomicWriteJson(PERSIST_PATH, payload);
-  } catch (e) {
-    console.error("⚠️ No se pudo guardar counters.json:", e.message);
-  } finally {
-    isSaving = false;
-    if (saveQueued) {
-      saveQueued = false;
-      savePersistedNow();
+  if (!storesList.length) {
+    showError("Sin tiendas", "Este token no tiene tiendas asignadas.");
+    return;
+  }
+
+  // Render grid una sola vez
+  tvGrid.innerHTML = "";
+  storeUi.clear();
+
+  for (const s of storesList) {
+    const card = makeStoreCard(s);
+    tvGrid.appendChild(card);
+  }
+}
+
+async function pollLive() {
+  if (!storesList.length) return;
+
+  // Fetch en paralelo
+  const tasks = storesList.map(async (s) => {
+    try {
+      const counters = await fetchJson(`${COUNTERS_URL}?storeId=${encodeURIComponent(s.id)}`);
+      updateStoreCard(s.id, counters);
+    } catch {
+      // si falla una tienda, no botamos todo
     }
-  }
-}
-
-function scheduleSave() {
-  if (saveTimer) return;
-  saveTimer = setTimeout(async () => {
-    saveTimer = null;
-    await savePersistedNow();
-  }, 1000);
-}
-
-setInterval(() => {
-  savePersistedNow();
-}, AUTOSAVE_MS).unref?.();
-
-process.on("SIGTERM", () => savePersistedNow().finally(() => process.exit(0)));
-process.on("SIGINT", () => savePersistedNow().finally(() => process.exit(0)));
-
-// --------------------------------------------------------------
-// addDelta
-// --------------------------------------------------------------
-function addDelta(storeId, delta, ts = Date.now()) {
-  ensureStore(storeId);
-
-  // ✅ NUEVO PARCHE: reset LIVE al cambiar el día (no toca el historial)
-  const todayKey = dateKeyFromTs(ts);
-  if (liveDayByStore[storeId] !== todayKey) {
-    storeCounters[storeId] = emptyCounters();
-    liveDayByStore[storeId] = todayKey;
-  }
-
-  const d = {
-    totalEntradas: safeNumber(delta.totalEntradas, 0),
-    totalSalidas: safeNumber(delta.totalSalidas, 0),
-
-    entradas: safeNumber(delta.entradas, 0),
-    salidas: safeNumber(delta.salidas, 0),
-
-    inChild: safeNumber(delta.inChild, 0),
-    outChild: safeNumber(delta.outChild, 0),
-    workersIn: safeNumber(delta.workersIn, 0),
-  };
-
-  Object.keys(d).forEach((k) => (storeCounters[storeId][k] += d[k]));
-
-  const dateKey = dateKeyFromTs(ts);
-  const hourKey = hourKeyFromTs(ts);
-  ensureDay(storeId, dateKey);
-
-  Object.keys(d).forEach((k) => (dailyCounters[storeId][dateKey][k] += d[k]));
-  Object.keys(d).forEach((k) => (hourlyCounters[storeId][dateKey][hourKey][k] += d[k]));
-
-  scheduleSave();
-
-  const dentroDia = Math.max(
-    dailyCounters[storeId][dateKey].entradas - dailyCounters[storeId][dateKey].salidas,
-    0
-  );
-
-  return { dateKey, hourKey, dentroDia };
-}
-
-// --------------------------------------------------------------
-// MAPEO: 1 SENSOR REAL (SN) = 1 TIENDA
-// --------------------------------------------------------------
-const DEVICE_TO_STORE = {
-  "221000002507152508": "test-01",
-  "211000002507152051": "leonisa-01",
-  "211000002507152052": "leonisa-03",
-};
-
-function getStoreIdFromDevice(sn) {
-  if (!sn) return null;
-  return DEVICE_TO_STORE[String(sn)] || null;
-}
-
-function getSnFromStoreId(storeId) {
-  const entries = Object.entries(DEVICE_TO_STORE);
-  const found = entries.find(([, sId]) => sId === storeId);
-  return found ? found[0] : null;
-}
-
-function okSensor(res, extraData = {}) {
-  return res.json({
-    code: 0,
-    msg: "success",
-    data: { time: Math.floor(Date.now() / 1000), ...extraData },
   });
+
+  await Promise.allSettled(tasks);
 }
 
-function normalizeCounts(body) {
-  const totalEntradas = safeNumber(
-    body.in ?? body.enter ?? body.Enter ?? body.In ?? body.inNum ?? body.InNum ?? 0,
-    0
-  );
-  const totalSalidas = safeNumber(
-    body.out ?? body.leave ?? body.Leave ?? body.Out ?? body.outNum ?? body.OutNum ?? 0,
-    0
-  );
-
-  const inChild = safeNumber(body.inChild ?? body.InChild ?? 0, 0);
-  const outChild = safeNumber(body.outChild ?? body.OutChild ?? 0, 0);
-
-  const inAdult = safeNumber(body.inAdult ?? (totalEntradas - inChild), 0);
-  const outAdult = safeNumber(body.outAdult ?? (totalSalidas - outChild), 0);
-
-  const attrs = Array.isArray(body.attributes) ? body.attributes : [];
-  const workers = attrs.reduce((acc, a) => acc + (Number(a?.workcard || 0) === 1 ? 1 : 0), 0);
-
-  const workersToRemoveFromIn = Math.min(workers, Math.max(inAdult, 0));
-  const workersToRemoveFromOut = Math.min(workers, Math.max(outAdult, 0));
-
-  const entradasClientes = Math.max(inAdult - workersToRemoveFromIn, 0);
-  const salidasClientes = Math.max(outAdult - workersToRemoveFromOut, 0);
-
-  return {
-    totalEntradas,
-    totalSalidas,
-    entradas: entradasClientes,
-    salidas: salidasClientes,
-    inChild,
-    outChild,
-    workersIn: workers,
-  };
-}
-
-// --------------------------------------------------------------
-// HEARTBEAT TRACKING
-// --------------------------------------------------------------
-const lastHeartbeatBySn = {};
-const HEARTBEAT_ONLINE_MS = 90 * 1000;
-
-function isOnlineBySn(sn) {
-  const last = lastHeartbeatBySn[String(sn)] || 0;
-  return !!last && Date.now() - last <= HEARTBEAT_ONLINE_MS;
-}
-
-app.get("/api/store/status", (req, res) => {
-  const storeId = String(req.query.storeId || "");
-  if (!storeId) return res.status(400).json({ error: "Falta storeId" });
-
-  const sn = getSnFromStoreId(storeId);
-  if (!sn) {
-    return res.json({
-      storeId,
-      sn: null,
-      online: false,
-      lastHeartbeat: null,
-      lastHeartbeatAgoMs: null,
-      note: "No hay SN mapeado a esta tienda en DEVICE_TO_STORE",
-    });
-  }
-
-  const last = lastHeartbeatBySn[String(sn)] || 0;
-  const now = Date.now();
-
-  return res.json({
-    storeId,
-    sn: String(sn),
-    online: isOnlineBySn(sn),
-    lastHeartbeat: last || null,
-    lastHeartbeatAgoMs: last ? now - last : null,
-  });
-});
-
-app.post("/api/camera/heartBeat", (req, res) => {
-  const sn = req.body?.sn;
-  if (sn) {
-    lastHeartbeatBySn[String(sn)] = Date.now();
-    scheduleSave();
-  }
-  return okSensor(res, { uploadInterval: 1, dataMode: "Add" });
-});
-
-app.post("/api/camera/dataUpload", (req, res) => {
-  const body = req.body || {};
-  const sn = body.sn;
-  const storeId = getStoreIdFromDevice(sn);
-
-  if (sn) lastHeartbeatBySn[String(sn)] = Date.now();
-
-  const sensorKey = `${storeId || "unknown"}:SN:${sn || "no-sn"}`;
-  sensors[sensorKey] = {
-    storeId: storeId || null,
-    deviceId: `SN:${sn || "no-sn"}`,
-    type: "sensor-real",
-    extra: body,
-    lastUpdate: new Date(),
-  };
-
-  if (!storeId) return okSensor(res);
-
-  const delta = normalizeCounts(body);
-  addDelta(storeId, delta, Date.now());
-
-  console.log(
-    `✅ ${storeId} SN=${sn} | in=${delta.totalEntradas} out=${delta.totalSalidas} | child in=${delta.inChild} out=${delta.outChild} | workers=${delta.workersIn} | CLIENTS in=${delta.entradas} out=${delta.salidas}`
-  );
-
-  return okSensor(res);
-});
-
-// --------------------------------------------------------------
-// CONSULTAS WEB
-// --------------------------------------------------------------
-app.get("/api/store/counters", (req, res) => {
-  const storeId = String(req.query.storeId || "");
-  if (!storeId) return res.status(400).json({ error: "Falta storeId en la query" });
-
-  ensureStore(storeId);
-  const c = storeCounters[storeId];
-
-  const dentroClientes = Math.max(c.entradas - c.salidas, 0);
-
-  res.json({
-    storeId,
-    entradas: c.entradas,
-    salidas: c.salidas,
-    dentro: dentroClientes,
-    inChild: c.inChild,
-    outChild: c.outChild,
-    workersIn: c.workersIn,
-    totalEntradas: c.totalEntradas,
-    totalSalidas: c.totalSalidas,
-  });
-});
-
-app.get("/api/store/history", (req, res) => {
-  const storeId = String(req.query.storeId || "");
-  const date = String(req.query.date || "");
-  if (!storeId) return res.status(400).json({ error: "Falta storeId en la query" });
-  if (!date) return res.status(400).json({ error: "Falta date=YYYY-MM-DD" });
-
-  ensureDay(storeId, date);
-
-  const d = dailyCounters[storeId][date];
-  const dentro = Math.max(d.entradas - d.salidas, 0);
-  const byHour = hourlyCounters[storeId][date] || {};
-
-  res.json({ storeId, date, ...d, dentro, byHour });
-});
-
-app.get("/api/sensors", (req, res) => res.json(Object.values(sensors)));
-app.get("/api/debug/heartbeat", (req, res) => res.json(lastHeartbeatBySn));
-
-app.post("/api/admin/reset-store", async (req, res) => {
-  try {
-    const storeId = String(req.body?.storeId || "");
-    if (!storeId) return res.status(400).json({ error: "Falta storeId" });
-
-    ensureStore(storeId);
-
-    // Resetea todo
-    storeCounters[storeId] = emptyCounters();
-    dailyCounters[storeId] = {};
-    hourlyCounters[storeId] = {};
-
-    // ✅ importante: para que LIVE quede “en hoy”
-    liveDayByStore[storeId] = dateKeyFromTs(Date.now());
-
-    await savePersistedNow();
-
-    return res.json({ ok: true, storeId, msg: "Tienda reseteada a 0" });
-  } catch (e) {
-    console.error("✖️ reset-store error", e);
-    return res.status(500).json({ error: "No se pudo resetear" });
-  }
-});
-
-// --------------------------------------------------------------
-// ✅ EXPORT CSV (SE MANTIENE TAL CUAL)
-// --------------------------------------------------------------
-function csvEscape(value) {
-  const s = String(value ?? "");
-  if (s.includes('"') || s.includes(",") || s.includes("\n") || s.includes("\r")) {
-    return `"${s.replace(/"/g, '""')}"`;
-  }
-  return s;
-}
-
-function sendCsv(res, filename, rows) {
-  const csv = rows.map((r) => r.map(csvEscape).join(",")).join("\n");
-  res.setHeader("Content-Type", "text/csv; charset=utf-8");
-  res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
-  return res.status(200).send(csv);
-}
-
-app.get("/api/store/export.csv", (req, res) => {
-  const storeId = String(req.query.storeId || "");
-  const date = String(req.query.date || "").trim();
-
-  if (!storeId) return res.status(400).send("Falta storeId");
-
-  const storeName = stores?.[storeId]?.name || storeId;
-
-  if (!date) {
-    ensureStore(storeId);
-    const c = storeCounters[storeId];
-    const dentro = Math.max(c.entradas - c.salidas, 0);
-
-    const now = new Date();
-
-    const ts = now.toLocaleString("es-CL", {
-      timeZone: "America/Santiago",
-      year: "numeric",
-      month: "2-digit",
-      day: "2-digit",
-      hour: "2-digit",
-      minute: "2-digit",
-      second: "2-digit",
-      hour12: false,
-    });
-
-    const safeTs = ts.replace(/[^\d]/g, "_");
-
-    const filename = `export_${storeId}_snapshot_${safeTs}.csv`;
-
-    const rows = [
-      [
-        "tipo",
-        "storeId",
-        "storeName",
-        "timestamp",
-        "clientes_entradas",
-        "clientes_salidas",
-        "clientes_dentro",
-        "ninos_entradas",
-        "ninos_salidas",
-        "trabajadores",
-        "raw_total_entradas",
-        "raw_total_salidas",
-      ],
-      [
-        "snapshot",
-        storeId,
-        storeName,
-        ts,
-        c.entradas,
-        c.salidas,
-        dentro,
-        c.inChild,
-        c.outChild,
-        c.workersIn,
-        c.totalEntradas,
-        c.totalSalidas,
-      ],
-    ];
-
-    return sendCsv(res, filename, rows);
-  }
-
-  ensureDay(storeId, date);
-
-  const d = dailyCounters[storeId][date];
-  const dentro = Math.max(d.entradas - d.salidas, 0);
-  const byHour = hourlyCounters[storeId][date] || {};
-
-  const filename = `export_${storeId}_${date}.csv`;
-
-  const rows = [];
-  rows.push([
-    "tipo",
-    "storeId",
-    "storeName",
-    "date",
-    "clientes_entradas",
-    "clientes_salidas",
-    "clientes_dentro",
-    "ninos_entradas",
-    "ninos_salidas",
-    "trabajadores",
-    "raw_total_entradas",
-    "raw_total_salidas",
-  ]);
-  rows.push([
-    "dia",
-    storeId,
-    storeName,
-    date,
-    d.entradas,
-    d.salidas,
-    dentro,
-    d.inChild,
-    d.outChild,
-    d.workersIn,
-    d.totalEntradas,
-    d.totalSalidas,
-  ]);
-
-  rows.push([]);
-  rows.push([
-    "tipo",
-    "storeId",
-    "storeName",
-    "date",
-    "hour",
-    "clientes_entradas",
-    "clientes_salidas",
-    "ninos_entradas",
-    "ninos_salidas",
-    "trabajadores",
-    "raw_total_entradas",
-    "raw_total_salidas",
-  ]);
-
-  const hours = Object.keys(byHour).sort();
-  for (const hh of hours) {
-    const h = byHour[hh] || emptyCounters();
-    rows.push([
-      "hora",
-      storeId,
-      storeName,
-      date,
-      hh,
-      h.entradas,
-      h.salidas,
-      h.inChild,
-      h.outChild,
-      h.workersIn,
-      h.totalEntradas,
-      h.totalSalidas,
-    ]);
-  }
-
-  return sendCsv(res, filename, rows);
-});
-
-// --------------------------------------------------------------
-// ✅ EXPORT EXCEL (.xlsx) — 1 hoja, profesional
-// --------------------------------------------------------------
-function ddmmyyyyFromISO(dateISO) {
-  const [y, m, d] = String(dateISO || "").split("-");
-  if (!y || !m || !d) return "";
-  return `${d}/${m}/${y}`;
-}
-
-function styleHeaderRow(row) {
-  row.font = { bold: true, color: { argb: "FFFFFFFF" } };
-  row.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF1C6DD0" } };
-  row.alignment = { vertical: "middle", horizontal: "center" };
-  row.height = 18;
-}
-
-function applyThinBorder(cell) {
-  cell.border = {
-    top: { style: "thin", color: { argb: "FFB0B0B0" } },
-    left: { style: "thin", color: { argb: "FFB0B0B0" } },
-    bottom: { style: "thin", color: { argb: "FFB0B0B0" } },
-    right: { style: "thin", color: { argb: "FFB0B0B0" } },
-  };
-}
-
-async function sendWorkbook(res, filename, workbook) {
-  res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
-  res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
-  const buffer = await workbook.xlsx.writeBuffer();
-  return res.status(200).send(Buffer.from(buffer));
-}
-
-app.get("/api/store/export.xlsx", async (req, res) => {
-  try {
-    const storeId = String(req.query.storeId || "");
-    const date = String(req.query.date || "").trim(); // opcional YYYY-MM-DD
-    if (!storeId) return res.status(400).send("Falta storeId");
-
-    const storeName = stores?.[storeId]?.name || storeId;
-
-    const workbook = new ExcelJS.Workbook();
-    workbook.creator = "SmartCountify";
-    workbook.created = new Date();
-
-    const ws = workbook.addWorksheet("Reporte");
-    ws.views = [{ state: "normal" }];
-
-    ws.getColumn(1).width = 26;
-    ws.getColumn(2).width = 18;
-    ws.getColumn(3).width = 18;
-    ws.getColumn(4).width = 18;
-    ws.getColumn(5).width = 18;
-    ws.getColumn(6).width = 18;
-    ws.getColumn(7).width = 18;
-    ws.getColumn(8).width = 18;
-
-    const logoPath = path.join(__dirname, "public", "logo.png");
-    if (fs.existsSync(logoPath)) {
-      const imageId = workbook.addImage({ filename: logoPath, extension: "png" });
-      ws.addImage(imageId, {
-        tl: { col: 0, row: 0 },
-        ext: { width: 180, height: 114 },
-      });
-      ws.getRow(1).height = 28;
-    }
-
-    ws.mergeCells("A1:H1");
-    ws.getCell("A1").value = storeName;
-    ws.getCell("A1").font = { bold: true, size: 18, color: { argb: "FFFFFFFF" } };
-    ws.getCell("A1").fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF0A2342" } };
-    ws.getCell("A1").alignment = { vertical: "middle", horizontal: "center" };
-    ws.getRow(1).height = 28;
-
-    ws.mergeCells("A2:H2");
-    ws.getCell("A2").value = `StoreId: ${storeId}`;
-    ws.getCell("A2").font = { bold: true, color: { argb: "FF0A2342" } };
-    ws.getCell("A2").alignment = { vertical: "middle", horizontal: "center" };
-
-    const now = new Date();
-
-    const nowCL = now.toLocaleString("es-CL", {
-      timeZone: "America/Santiago",
-      year: "numeric",
-      month: "2-digit",
-      day: "2-digit",
-      hour: "2-digit",
-      minute: "2-digit",
-      second: "2-digit",
-      hour12: false,
-    });
-
-    const safeTs = String(nowCL).replace(/[^\d]/g, "_");
-
-    ws.mergeCells("A3:H3");
-    ws.getCell("A3").value = date ? `Fecha: ${ddmmyyyyFromISO(date)}` : `Snapshot: ${nowCL} (Chile)`;
-    ws.getCell("A3").alignment = { vertical: "middle", horizontal: "center" };
-
-    ws.mergeCells("A4:H4");
-    ws.getCell("A4").value =
-      "Reporte de conteos (Clientes / Niños / Empleados + Total del sensor)";
-    ws.getCell("A4").alignment = { vertical: "middle", horizontal: "center" };
-
-    ws.addRow([]);
-
-    ws.mergeCells("A6:H6");
-    ws.getCell("A6").value = "RESUMEN";
-    ws.getCell("A6").font = { bold: true, size: 14, color: { argb: "FFFFFFFF" } };
-    ws.getCell("A6").fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF1C6DD0" } };
-    ws.getCell("A6").alignment = { vertical: "middle", horizontal: "center" };
-    ws.getRow(6).height = 20;
-
-    let summary = null;
-    let byHour = null;
-
-    if (!date) {
-      ensureStore(storeId);
-      const c = storeCounters[storeId];
-      summary = {
-        entradas: c.entradas,
-        salidas: c.salidas,
-        dentro: Math.max(c.entradas - c.salidas, 0),
-        inChild: c.inChild,
-        outChild: c.outChild,
-        workersIn: c.workersIn,
-        totalEntradas: c.totalEntradas,
-        totalSalidas: c.totalSalidas,
-      };
-      byHour = null;
-    } else {
-      ensureDay(storeId, date);
-      const d = dailyCounters[storeId][date];
-      summary = {
-        entradas: d.entradas,
-        salidas: d.salidas,
-        dentro: Math.max(d.entradas - d.salidas, 0),
-        inChild: d.inChild,
-        outChild: d.outChild,
-        workersIn: d.workersIn,
-        totalEntradas: d.totalEntradas,
-        totalSalidas: d.totalSalidas,
-      };
-      byHour = hourlyCounters[storeId][date] || {};
-    }
-
-    ws.addRow(["Métrica", "Valor"]);
-    styleHeaderRow(ws.getRow(7));
-
-    const rowsSummary = [
-      ["Clientes Entradas", summary.entradas],
-      ["Clientes Salidas", summary.salidas],
-      ["Clientes Dentro", summary.dentro],
-      ["Niños Entradas", summary.inChild],
-      ["Niños Salidas", summary.outChild],
-      ["Empleados", summary.workersIn],
-      ["Total Entradas (Sensor)", summary.totalEntradas],
-      ["Total Salidas (Sensor)", summary.totalSalidas],
-    ];
-
-    let r = 8;
-    for (const [label, val] of rowsSummary) {
-      ws.getCell(`A${r}`).value = label;
-      ws.getCell(`B${r}`).value = Number(val || 0);
-      ws.getCell(`A${r}`).font = { bold: true };
-      ws.getCell(`B${r}`).alignment = { horizontal: "right" };
-      applyThinBorder(ws.getCell(`A${r}`));
-      applyThinBorder(ws.getCell(`B${r}`));
-      r++;
-    }
-
-    ws.addRow([]);
-    r++;
-
-    if (date && byHour) {
-      ws.mergeCells(`A${r}:H${r}`);
-      ws.getCell(`A${r}`).value = "DETALLE POR HORA";
-      ws.getCell(`A${r}`).font = { bold: true, size: 13, color: { argb: "FFFFFFFF" } };
-      ws.getCell(`A${r}`).fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF0A2342" } };
-      ws.getCell(`A${r}`).alignment = { vertical: "middle", horizontal: "center" };
-      ws.getRow(r).height = 18;
-      r++;
-
-      ws.addRow([
-        "Hora",
-        "Clientes Entradas",
-        "Clientes Salidas",
-        "Niños Entradas",
-        "Niños Salidas",
-        "Empleados",
-        "Total Entradas (Sensor)",
-        "Total Salidas (Sensor)",
-      ]);
-      styleHeaderRow(ws.getRow(r));
-      r++;
-
-      const hours = Object.keys(byHour).sort();
-      for (const hh of hours) {
-        const h = byHour[hh] || emptyCounters();
-        const row = ws.addRow([
-          hh,
-          Number(h.entradas || 0),
-          Number(h.salidas || 0),
-          Number(h.inChild || 0),
-          Number(h.outChild || 0),
-          Number(h.workersIn || 0),
-          Number(h.totalEntradas || 0),
-          Number(h.totalSalidas || 0),
-        ]);
-
-        row.eachCell((cell, colNumber) => {
-          applyThinBorder(cell);
-          if (colNumber >= 2) cell.alignment = { horizontal: "right" };
-        });
-        row.getCell(1).alignment = { horizontal: "center" };
-      }
-    } else {
-      ws.mergeCells(`A${r}:H${r}`);
-      ws.getCell(`A${r}`).value = "Este export es un SNAPSHOT (no incluye desglose por hora).";
-      ws.getCell(`A${r}`).font = { italic: true, color: { argb: "FF555555" } };
-      ws.getCell(`A${r}`).alignment = { vertical: "middle", horizontal: "center" };
-    }
-
-    const filename = date ? `export_${storeId}_${date}.xlsx` : `export_${storeId}_snapshot_${safeTs}.xlsx`;
-
-    return await sendWorkbook(res, filename, workbook);
-  } catch (e) {
-    console.error("❌ Error export.xlsx:", e);
-    return res.status(500).send("No se pudo generar el Excel.");
-  }
-});
-
-// ---------------- START ----------------
 async function start() {
-  await loadPersisted();
-  const PORT = process.env.PORT || 3000;
-  app.listen(PORT, "0.0.0.0", () => console.log("OK", PORT));
+  clockTick();
+  setInterval(clockTick, 1000);
+
+  try {
+    await loadConfigAndRender();
+    await pollLive();
+    setInterval(pollLive, POLL_MS);
+  } catch (e) {
+    showError("No se pudo cargar TV", e?.message || String(e));
+  }
 }
 
 start();
