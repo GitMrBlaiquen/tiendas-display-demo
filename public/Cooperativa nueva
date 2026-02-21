@@ -17,84 +17,58 @@
 
   min-height: 100vh;
   display: grid;
-  grid-template-rows: auto 1fr; /* ✅ ya no hay footer */
+  grid-template-rows: auto 1fr; /* ✅ sin footer */
 }
 
 /* ----------------------------
-   HEADER TOP BAR + TITLE
+   HEADER: Cliente+Hora (centro) / Logo (derecha) / Título
 ---------------------------- */
 .tv-top{
-  padding: 10px 26px 6px;
   position: relative;
-  display: flex;
-  align-items: flex-start;
-  justify-content: center;
-}
-
-.tv-client-block{
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    text-align: center;
-}
-
-.tv-client{
-    font-weight: 900;
-    font-size: 20px;
-}
-
-.tv-time{
-    font-size: 14px;
-    color: var(--muted);
-    font-weight: 800;
-    margin-top: 4px;
-}
-
-.tv-topbar{
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 18px;
-}
-
-.tv-topbar-left{
+  padding: 14px 26px 10px;
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  min-width: 320px;
+  align-items: center;
 }
 
+/* bloque centrado */
+.tv-client-block{
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+
+/* Cliente */
 .tv-client{
   font-weight: 950;
   font-size: 20px;
 }
 
+/* Hora debajo del cliente */
 .tv-time{
   font-size: 14px;
   color: var(--muted);
   font-weight: 850;
+  margin-top: 4px;
 }
 
-/* ✅ LOGO GRANDE ARRIBA DERECHA */
-.tv-client-logo-wrap{
-  display: flex;
-  justify-content: flex-end;
-  align-items: flex-start;
-  flex: 1;
-}
-
+/* Logo arriba derecha (más grande) */
 .tv-client-logo{
-    positon: absolute;
-    right: 26px;
-    top: 10px;
-    height: 120px;
-    width: auto;
-    object-fit: contain;
+  position: absolute;   /* ✅ antes estaba mal escrito */
+  right: 26px;
+  top: 10px;
+
+  height: 140px;        /* ✅ cámbialo aquí para más grande */
+  width: auto;
+  object-fit: contain;
+
+  display: none;        /* tv.js lo activa cuando hay logo */
 }
 
-/* ✅ TÍTULO CENTRADO DEBAJO DEL TOP BAR */
+/* Título centrado debajo */
 .tv-title{
-  margin: 10px 0 0;
+  margin: 18px 0 0;     /* ✅ separa del cliente/hora y baja un poco el título */
   text-align: center;
   font-size: 30px;
   font-weight: 900;
@@ -105,7 +79,7 @@
    MAIN / GRID
 ---------------------------- */
 .tv-main{
-  padding: 12px 26px 16px;
+  padding: 24px 26px 16px; /* ✅ más espacio arriba para que las cards bajen */
 }
 
 /* ✅ 4 por fila */
