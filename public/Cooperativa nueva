@@ -1,7 +1,9 @@
-// SmartCountify TV
+// SmartCountify TV (reescrito)
 // - Sin login (solo token en URL /tv/:token)
 // - Config: /api/tv/config?token=...
 // - Datos LIVE: /api/store/counters?storeId=...
+// - 12 slots fijos (4x3), cards uniformes, sin parpadeos
+// - Donut con "DENTRO" al centro (plugin)
 
 const BASE_URL = window.location.origin;
 const CONFIG_URL = `${BASE_URL}/api/tv/config`;
@@ -16,12 +18,15 @@ const tvErrorTitle = document.getElementById("tvErrorTitle");
 const tvErrorMsg = document.getElementById("tvErrorMsg");
 
 const POLL_MS = 2500;
+const SLOTS = 12; // 4x3 fijo
 
-const DONUT_LABELS = ["Entrantes", "Niños", "Empleados", "Salientes"]; // similar a la foto
-// OJO: no forzamos colores en CSS, pero Chart.js necesita backgroundColor.
-// Si quieres, lo dejamos con defaults -> pero se verá feo. Usamos colores suaves.
+// Donut slices (4) — Dentro se muestra al centro, NO como slice
+const DONUT_LABELS = ["Entrantes", "Niños", "Empleados", "Salientes"];
 const DONUT_COLORS = ["#0000CD", "#FFFF00", "#E9967A", "#228B22"];
 
+// ---------------------------
+// Helpers UI
+// ---------------------------
 function showError(title, msg) {
   if (tvErrorTitle) tvErrorTitle.textContent = title || "Error";
   if (tvErrorMsg) tvErrorMsg.textContent = msg || "";
@@ -50,7 +55,6 @@ function clockTick() {
 function getTokenFromPath() {
   // /tv/TOKEN
   const parts = window.location.pathname.split("/").filter(Boolean);
-  // ["tv", "TOKEN"]
   if (parts.length >= 2 && parts[0] === "tv") return parts[1];
   return "";
 }
@@ -64,20 +68,80 @@ async function fetchJson(url) {
   return res.json();
 }
 
-// ---------------------------
-// Render grid
-// ---------------------------
-const storeUi = new Map(); // storeId -> { cardEl, chart, canvasEl, lastDataKey }
+function escapeHtml(s) {
+  return String(s ?? "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
+}
 
-function makeStoreCard(store) {
+// ---------------------------
+// Donut center text plugin: "DENTRO"
+// ---------------------------
+const centerTextPlugin = {
+  id: "centerText",
+  afterDraw(chart, args, opts) {
+    // opts: { value, labelTop?, labelBottom? }
+    const meta = chart.getDatasetMeta(0);
+    if (!meta?.data?.length) return;
+
+    const { ctx } = chart;
+    const x = meta.data[0].x;
+    const y = meta.data[0].y;
+
+    const inside = Number(opts?.value ?? 0);
+    const top = String(opts?.top ?? "DENTRO");
+    const bottom = String(opts?.bottom ?? "");
+
+    ctx.save();
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+
+    // Numero grande
+    ctx.fillStyle = "#0A2342";
+    ctx.font = "900 26px system-ui";
+    ctx.fillText(String(inside), x, y - 6);
+
+    // Texto "DENTRO"
+    ctx.fillStyle = "rgba(10,35,66,.75)";
+    ctx.font = "900 11px system-ui";
+    ctx.fillText(top, x, y + 18);
+
+    // Texto opcional abajo
+    if (bottom) {
+      ctx.fillStyle = "rgba(10,35,66,.55)";
+      ctx.font = "800 10px system-ui";
+      ctx.fillText(bottom, x, y + 33);
+    }
+
+    ctx.restore();
+  },
+};
+
+// ---------------------------
+// Grid + Cards (12 slots fijos)
+// ---------------------------
+const storeUi = new Map(); // key(slotIndex) -> { type, storeId?, cardEl, chart, lastDataKey }
+let storesList = []; // stores reales del token (limitado a 12)
+
+function makeSlotCard(slotIndex, storeOrNull) {
+  const isEmpty = !storeOrNull;
+
+  const storeId = isEmpty ? `empty-${slotIndex}` : storeOrNull.id;
+  const storeName = isEmpty ? "—" : (storeOrNull.name || storeOrNull.id);
+
   const card = document.createElement("article");
   card.className = "store-card";
-  card.setAttribute("data-storeid", store.id);
+  card.setAttribute("data-slot", String(slotIndex));
+  card.setAttribute("data-storeid", storeId);
 
+  // Nota: mantenemos estructura idéntica siempre (uniforme)
   card.innerHTML = `
     <div class="store-head">
-      <div class="store-name" title="${escapeHtml(store.name || store.id)}">${escapeHtml(store.name || store.id)}</div>
-      <div class="store-sub">${escapeHtml(store.id)}</div>
+      <div class="store-name" title="${escapeHtml(storeName)}">${escapeHtml(storeName)}</div>
+      <div class="store-sub">${escapeHtml(isEmpty ? "" : storeId)}</div>
     </div>
 
     <div class="store-body">
@@ -95,11 +159,12 @@ function makeStoreCard(store) {
     </div>
 
     <div class="store-foot">
-      <span class="pill">LIVE</span>
+      <span class="pill ${isEmpty ? "pill-off" : ""}">${isEmpty ? "—" : "LIVE"}</span>
       <span class="pill v-updated">—</span>
     </div>
   `;
 
+  // Si es slot vacío: igual creamos chart para que el layout sea idéntico (sin saltos)
   const canvas = card.querySelector("canvas");
   const ctx = canvas.getContext("2d");
 
@@ -121,44 +186,80 @@ function makeStoreCard(store) {
       cutout: "62%",
       plugins: {
         legend: { display: false },
-        tooltip: { enabled: false }, // TV: limpio
+        tooltip: { enabled: false },
+        centerText: { value: 0, top: "DENTRO", bottom: "" },
       },
       animation: false,
     },
+    plugins: [centerTextPlugin],
   });
 
-  storeUi.set(store.id, { cardEl: card, chart, canvasEl: canvas, lastDataKey: "" });
+  // En slots vacíos lo dejamos visualmente “apagado”
+  if (isEmpty) {
+    card.classList.add("is-empty");
+  }
+
+  storeUi.set(slotIndex, {
+    type: isEmpty ? "empty" : "store",
+    storeId: isEmpty ? null : storeOrNull.id,
+    cardEl: card,
+    chart,
+    lastDataKey: "",
+  });
+
   return card;
 }
 
-function updateStoreCard(storeId, counters) {
-  const ui = storeUi.get(storeId);
-  if (!ui) return;
+function render12SlotsOnce() {
+  if (!tvGrid) return;
+
+  // Render una sola vez (sin parpadeos)
+  tvGrid.innerHTML = "";
+  storeUi.clear();
+
+  for (let i = 0; i < SLOTS; i++) {
+    const store = storesList[i] || null;
+    tvGrid.appendChild(makeSlotCard(i, store));
+  }
+}
+
+function updateStoreSlot(slotIndex, counters) {
+  const ui = storeUi.get(slotIndex);
+  if (!ui || ui.type !== "store" || !ui.storeId) return;
 
   const entradas = Number(counters?.entradas || 0);
   const salidas = Number(counters?.salidas || 0);
   const inChild = Number(counters?.inChild || 0);
   const workersIn = Number(counters?.workersIn || 0);
-  const dentro = Number(counters?.dentro || Math.max(entradas - salidas, 0));
+  const dentro = Number(
+    counters?.dentro ?? Math.max(entradas - salidas, 0)
+  );
 
-  // dataKey para evitar updates inútiles
+  // Evita updates inútiles (menos carga, menos “micro-parpadeos”)
   const dataKey = `${entradas}|${salidas}|${inChild}|${workersIn}|${dentro}`;
   if (ui.lastDataKey === dataKey) return;
   ui.lastDataKey = dataKey;
 
-  // stats
-  ui.cardEl.querySelector(".v-in").textContent = String(entradas);
-  ui.cardEl.querySelector(".v-out").textContent = String(salidas);
-  ui.cardEl.querySelector(".v-child").textContent = String(inChild);
-  ui.cardEl.querySelector(".v-work").textContent = String(workersIn);
-  ui.cardEl.querySelector(".v-instore").textContent = String(dentro);
+  const el = ui.cardEl;
 
-  // donut: Entrantes, Niños, Empleados, Salientes
+  // stats (solo texto)
+  el.querySelector(".v-in").textContent = String(entradas);
+  el.querySelector(".v-out").textContent = String(salidas);
+  el.querySelector(".v-child").textContent = String(inChild);
+  el.querySelector(".v-work").textContent = String(workersIn);
+  el.querySelector(".v-instore").textContent = String(dentro);
+
+  // donut slices: Entrantes, Niños, Empleados, Salientes
   ui.chart.data.datasets[0].data = [entradas, inChild, workersIn, salidas];
+
+  // centro: DENTRO
+  ui.chart.options.plugins.centerText.value = dentro;
+
+  // update sin animación
   ui.chart.update("none");
 
   // updated time
-  ui.cardEl.querySelector(".v-updated").textContent = new Date().toLocaleTimeString("es-CL", {
+  el.querySelector(".v-updated").textContent = new Date().toLocaleTimeString("es-CL", {
     hour: "2-digit",
     minute: "2-digit",
     second: "2-digit",
@@ -166,58 +267,45 @@ function updateStoreCard(storeId, counters) {
   });
 }
 
-function escapeHtml(s) {
-  return String(s ?? "")
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#039;");
-}
-
 // ---------------------------
 // Main
 // ---------------------------
-let storesList = [];
-
-async function loadConfigAndRender() {
+async function loadConfigAndBuild() {
   hideError();
 
   const token = getTokenFromPath();
   if (!token) {
     showError("Falta token", "Usa /tv/TOKEN\nEj: https://smartcountify.cl/tv/AB12x9KQ");
-    return;
+    return false;
   }
 
   const cfg = await fetchJson(`${CONFIG_URL}?token=${encodeURIComponent(token)}`);
   const label = cfg?.label || "SmartCountify";
-  storesList = Array.isArray(cfg?.stores) ? cfg.stores : [];
 
   if (tvClient) tvClient.textContent = `Cliente: ${label}`;
 
-  if (!storesList.length) {
+  const list = Array.isArray(cfg?.stores) ? cfg.stores : [];
+  if (!list.length) {
     showError("Sin tiendas", "Este token no tiene tiendas asignadas.");
-    return;
+    return false;
   }
 
-  // Render grid una sola vez
-  tvGrid.innerHTML = "";
-  storeUi.clear();
+  // Limitamos a 12 para el layout fijo 4x3
+  storesList = list.slice(0, SLOTS);
 
-  for (const s of storesList) {
-    const card = makeStoreCard(s);
-    tvGrid.appendChild(card);
-  }
+  // Render fijo una vez
+  render12SlotsOnce();
+  return true;
 }
 
 async function pollLive() {
   if (!storesList.length) return;
 
-  // Fetch en paralelo
-  const tasks = storesList.map(async (s) => {
+  // Fetch paralelo solo de tiendas reales
+  const tasks = storesList.map(async (s, idx) => {
     try {
       const counters = await fetchJson(`${COUNTERS_URL}?storeId=${encodeURIComponent(s.id)}`);
-      updateStoreCard(s.id, counters);
+      updateStoreSlot(idx, counters);
     } catch {
       // si falla una tienda, no botamos todo
     }
@@ -231,7 +319,9 @@ async function start() {
   setInterval(clockTick, 1000);
 
   try {
-    await loadConfigAndRender();
+    const ok = await loadConfigAndBuild();
+    if (!ok) return;
+
     await pollLive();
     setInterval(pollLive, POLL_MS);
   } catch (e) {
