@@ -21,10 +21,10 @@
     <section id="tvGrid" class="tv-grid" aria-label="Grid de tiendas"></section>
   </main>
 
-  <!-- ✅ FOOTER ABAJO: Cliente izq + Logo der + Hora abajo -->
+  <!-- ✅ FOOTER ABAJO: Cliente izq + Logo der, Hora abajo -->
   <footer class="tv-footer">
     <div class="tv-footer-row">
-      <div class="tv-client" id="tvClientLabel">Cliente: —</div>
+      <div class="tv-client" id="tvClient">Cliente: —</div>
 
       <div class="tv-client-logo-wrap">
         <img id="tvClientLogo" class="tv-client-logo" alt="Logo cliente" />
@@ -36,9 +36,18 @@
     </div>
   </footer>
 
+  <!-- ✅ Overlay de error (lo usa tv.js) -->
+  <section id="tvError" class="tv-error" style="display:none;">
+    <div class="tv-error-box">
+      <h2 id="tvErrorTitle">Error</h2>
+      <p id="tvErrorMsg"></p>
+    </div>
+  </section>
+
   <script src="/tv.js"></script>
 </body>
 </html>
+
 
 
 :root{
@@ -58,7 +67,6 @@
   background: var(--bg);
   color: var(--ink);
 
-  /* ✅ pantalla completa */
   min-height: 100vh;
   display: grid;
   grid-template-rows: auto 1fr auto;
@@ -80,45 +88,128 @@
   padding: 10px 26px 6px;
 }
 
-/* ✅ 4 por fila (12 total = 3 filas) */
+/* ✅ 4 por fila */
 .tv-grid{
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 18px;
 }
 
-.tv-card{
+/* ✅ tv.js crea .store-card (no .tv-card) */
+.store-card{
   background: var(--card);
   border-radius: var(--radius);
   box-shadow: var(--shadow);
   padding: 12px;
+  overflow: hidden;
+
+  /* ✅ altura fija => 0 parpadeo/layout shift */
+  height: 255px;
   display: grid;
   grid-template-rows: auto 1fr auto;
-  overflow: hidden;
 }
 
-.tv-card-title{
+.store-card.is-empty{
+  opacity: 0.55;
+}
+
+/* Header de card */
+.store-head{
+  margin-bottom: 6px;
+}
+
+.store-name{
   font-weight: 900;
   font-size: 16px;
-  margin: 2px 0 8px;
+  margin: 2px 0 2px;
   color: var(--ink);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-.tv-card-sub{
-  margin-top: 8px;
+.store-sub{
   font-size: 12px;
   color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Body: donut + stats */
+.store-body{
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  align-items: center;
+  min-height: 0;
+}
+
+.store-chart{
+  position: relative;
+  height: 170px; /* fijo para que no cambie */
+  width: 100%;
+}
+
+.store-chart canvas{
+  width: 100% !important;
+  height: 100% !important;
+}
+
+/* Stats */
+.store-stats{
+  display: grid;
+  gap: 6px;
+  font-size: 13px;
+}
+
+.stat-row{
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 3px 6px;
+  border-radius: 10px;
+  background: rgba(255,255,255,0.55);
+  border: 1px solid rgba(0,0,0,0.04);
+}
+
+.stat-row span:first-child{
+  color: rgba(10,35,66,.80);
+  font-weight: 800;
+}
+
+.stat-row span:last-child{
+  font-weight: 900;
+}
+
+/* Footer de card */
+.store-foot{
+  margin-top: 8px;
   display: flex;
   justify-content: space-between;
   gap: 10px;
 }
 
-.tv-donut-wrap{
-  position: relative;
-  width: 100%;
-  height: 180px; /* ajusta según TV */
+.pill{
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 900;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(10,35,66,0.08);
+  color: rgba(10,35,66,.90);
+  border: 1px solid rgba(10,35,66,0.08);
 }
 
+.pill-off{
+  background: rgba(0,0,0,0.06);
+  border-color: rgba(0,0,0,0.06);
+  color: rgba(0,0,0,0.55);
+}
+
+/* Footer global */
 .tv-footer{
   padding: 10px 26px 16px;
 }
@@ -131,7 +222,7 @@
 }
 
 .tv-client{
-  font-weight: 800;
+  font-weight: 900;
   font-size: 18px;
 }
 
@@ -145,7 +236,7 @@
   height: 34px;
   width: auto;
   object-fit: contain;
-  display: none; /* se muestra solo si hay logo */
+  display: none; /* se muestra cuando tv.js lo active */
 }
 
 .tv-footer-row--bottom{
@@ -155,5 +246,39 @@
 .tv-time{
   font-size: 14px;
   color: var(--muted);
-  font-weight: 700;
+  font-weight: 800;
 }
+
+/* Error overlay */
+.tv-error{
+  position: fixed;
+  inset: 0;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0,0,0,0.35);
+  z-index: 9999;
+}
+
+.tv-error-box{
+  background: rgba(255,255,255,0.95);
+  border-radius: 16px;
+  box-shadow: 0 20px 50px rgba(0,0,0,0.20);
+  padding: 18px 18px;
+  width: min(520px, calc(100vw - 40px));
+}
+
+.tv-error-box h2{
+  margin: 0 0 8px;
+  font-size: 18px;
+  font-weight: 950;
+  color: var(--ink);
+}
+
+.tv-error-box p{
+  margin: 0;
+  color: rgba(10,35,66,.75);
+  font-weight: 700;
+  white-space: pre-line;
+}
+
