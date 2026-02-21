@@ -1,3 +1,557 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SmartCountify TV</title>
+
+  <link rel="stylesheet" href="/tv.css" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+
+<body class="tv-body">
+
+  <!-- ✅ TÍTULO CENTRADO ARRIBA -->
+  <header class="tv-top">
+    <h1 class="tv-title">Contador de Personas Por Tiendas</h1>
+  </header>
+
+  <!-- ✅ GRID 4x3 -->
+  <main class="tv-main">
+    <section id="tvGrid" class="tv-grid" aria-label="Grid de tiendas"></section>
+  </main>
+
+  <!-- ✅ FOOTER ABAJO: Cliente izq + Logo der, Hora abajo -->
+  <footer class="tv-footer">
+    <div class="tv-footer-row">
+      <div class="tv-client" id="tvClient">Cliente: —</div>
+
+      <div class="tv-client-logo-wrap">
+        <img id="tvClientLogo" class="tv-client-logo" alt="Logo cliente" />
+      </div>
+    </div>
+
+    <div class="tv-footer-row tv-footer-row--bottom">
+      <div class="tv-time" id="tvClock">—</div>
+    </div>
+  </footer>
+
+  <!-- ✅ Overlay de error (lo usa tv.js) -->
+  <section id="tvError" class="tv-error" style="display:none;">
+    <div class="tv-error-box">
+      <h2 id="tvErrorTitle">Error</h2>
+      <p id="tvErrorMsg"></p>
+    </div>
+  </section>
+
+  <script src="/tv.js"></script>
+</body>
+</html>
+
+
+:root{
+  --bg: #f3f4f6;
+  --card: rgba(255,255,255,0.85);
+  --ink: #0A2342;
+  --muted: rgba(10,35,66,0.65);
+  --shadow: 0 10px 24px rgba(0,0,0,0.06);
+  --radius: 14px;
+}
+
+*{ box-sizing: border-box; }
+
+.tv-body{
+  margin: 0;
+  font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+  background: var(--bg);
+  color: var(--ink);
+
+  min-height: 100vh;
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+}
+
+.tv-top{
+  padding: 18px 26px 8px;
+}
+
+.tv-title{
+  margin: 0;
+  text-align: center;
+  font-size: 34px;
+  font-weight: 900;
+  letter-spacing: 0.2px;
+}
+
+.tv-main{
+  padding: 10px 26px 6px;
+}
+
+/* ✅ 4 por fila */
+.tv-grid{
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 18px;
+}
+
+/* ✅ tv.js crea .store-card (no .tv-card) */
+.store-card{
+  background: var(--card);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 12px;
+  overflow: hidden;
+
+  /* ✅ altura fija => 0 parpadeo/layout shift */
+  height: 255px;
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+}
+
+.store-card.is-empty{
+  opacity: 0.55;
+}
+
+/* Header de card */
+.store-head{
+  margin-bottom: 6px;
+}
+
+.store-name{
+  font-weight: 900;
+  font-size: 16px;
+  margin: 2px 0 2px;
+  color: var(--ink);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.store-sub{
+  font-size: 12px;
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Body: donut + stats */
+.store-body{
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  align-items: center;
+  min-height: 0;
+}
+
+.store-chart{
+  position: relative;
+  height: 170px; /* fijo para que no cambie */
+  width: 100%;
+}
+
+.store-chart canvas{
+  width: 100% !important;
+  height: 100% !important;
+}
+
+/* Stats */
+.store-stats{
+  display: grid;
+  gap: 6px;
+  font-size: 13px;
+}
+
+.stat-row{
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 3px 6px;
+  border-radius: 10px;
+  background: rgba(255,255,255,0.55);
+  border: 1px solid rgba(0,0,0,0.04);
+}
+
+.stat-row span:first-child{
+  color: rgba(10,35,66,.80);
+  font-weight: 800;
+}
+
+.stat-row span:last-child{
+  font-weight: 900;
+}
+
+/* Footer de card */
+.store-foot{
+  margin-top: 8px;
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.pill{
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 900;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(10,35,66,0.08);
+  color: rgba(10,35,66,.90);
+  border: 1px solid rgba(10,35,66,0.08);
+}
+
+.pill-off{
+  background: rgba(0,0,0,0.06);
+  border-color: rgba(0,0,0,0.06);
+  color: rgba(0,0,0,0.55);
+}
+
+/* Footer global */
+.tv-footer{
+  padding: 10px 26px 16px;
+}
+
+.tv-footer-row{
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.tv-client{
+  font-weight: 900;
+  font-size: 18px;
+}
+
+.tv-client-logo-wrap{
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+}
+
+.tv-client-logo{
+  height: 34px;
+  width: auto;
+  object-fit: contain;
+  display: none; /* se muestra cuando tv.js lo active */
+}
+
+.tv-footer-row--bottom{
+  margin-top: 8px;
+}
+
+.tv-time{
+  font-size: 14px;
+  color: var(--muted);
+  font-weight: 800;
+}
+
+/* Error overlay */
+.tv-error{
+  position: fixed;
+  inset: 0;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0,0,0,0.35);
+  z-index: 9999;
+}
+
+.tv-error-box{
+  background: rgba(255,255,255,0.95);
+  border-radius: 16px;
+  box-shadow: 0 20px 50px rgba(0,0,0,0.20);
+  padding: 18px 18px;
+  width: min(520px, calc(100vw - 40px));
+}
+
+.tv-error-box h2{
+  margin: 0 0 8px;
+  font-size: 18px;
+  font-weight: 950;
+  color: var(--ink);
+}
+
+.tv-error-box p{
+  margin: 0;
+  color: rgba(10,35,66,.75);
+  font-weight: 700;
+  white-space: pre-line;
+}
+
+
+// SmartCountify TV (reescrito)
+// - Sin login (solo token en URL /tv/:token)
+// - Config: /api/tv/config?token=...
+// - Datos LIVE: /api/store/counters?storeId=...
+// - 12 slots fijos (4x3), cards uniformes, sin parpadeos
+// - Donut con "DENTRO" al centro (plugin)
+
+const BASE_URL = window.location.origin;
+const CONFIG_URL = `${BASE_URL}/api/tv/config`;
+const COUNTERS_URL = `${BASE_URL}/api/store/counters`;
+
+const tvGrid = document.getElementById("tvGrid");
+const tvClient = document.getElementById("tvClient");
+const tvClientLogo = document.getElementById("tvClientLogo");
+const tvClock = document.getElementById("tvClock");
+
+const tvError = document.getElementById("tvError");
+const tvErrorTitle = document.getElementById("tvErrorTitle");
+const tvErrorMsg = document.getElementById("tvErrorMsg");
+
+const POLL_MS = 2500;
+const SLOTS = 12; // 4x3 fijo
+
+// Donut slices (4) — Dentro se muestra al centro, NO como slice
+const DONUT_LABELS = ["Entrantes", "Niños", "Empleados", "Salientes"];
+const DONUT_COLORS = ["#0000CD", "#FFFF00", "#E9967A", "#228B22"];
+
+// ---------------------------
+// Helpers UI
+// ---------------------------
+function showError(title, msg) {
+  if (tvErrorTitle) tvErrorTitle.textContent = title || "Error";
+  if (tvErrorMsg) tvErrorMsg.textContent = msg || "";
+  if (tvError) tvError.style.display = "flex";
+}
+
+function hideError() {
+  if (tvError) tvError.style.display = "none";
+}
+
+function pad2(n) {
+  return String(n).padStart(2, "0");
+}
+
+function clockTick() {
+  const d = new Date();
+  const dd = pad2(d.getDate());
+  const mm = pad2(d.getMonth() + 1);
+  const yyyy = d.getFullYear();
+  const hh = pad2(d.getHours());
+  const mi = pad2(d.getMinutes());
+  const ss = pad2(d.getSeconds());
+  if (tvClock) tvClock.textContent = `${dd}-${mm}-${yyyy} ${hh}:${mi}:${ss}`;
+}
+
+function getTokenFromPath() {
+  // /tv/TOKEN
+  const parts = window.location.pathname.split("/").filter(Boolean);
+  if (parts.length >= 2 && parts[0] === "tv") return parts[1];
+  return "";
+}
+
+async function fetchJson(url) {
+  const res = await fetch(url, { cache: "no-store" });
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    throw new Error(text || `Error ${res.status}`);
+  }
+  return res.json();
+}
+
+function escapeHtml(s) {
+  return String(s ?? "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
+}
+
+// ---------------------------
+// Donut center text plugin: "DENTRO"
+// ---------------------------
+const centerTextPlugin = {
+  id: "centerText",
+  afterDraw(chart, args, opts) {
+    // opts: { value, labelTop?, labelBottom? }
+    const meta = chart.getDatasetMeta(0);
+    if (!meta?.data?.length) return;
+
+    const { ctx } = chart;
+    const x = meta.data[0].x;
+    const y = meta.data[0].y;
+
+    const inside = Number(opts?.value ?? 0);
+    const top = String(opts?.top ?? "DENTRO");
+    const bottom = String(opts?.bottom ?? "");
+
+    ctx.save();
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+
+    // Numero grande
+    ctx.fillStyle = "#0A2342";
+    ctx.font = "900 26px system-ui";
+    ctx.fillText(String(inside), x, y - 6);
+
+    // Texto "DENTRO"
+    ctx.fillStyle = "rgba(10,35,66,.75)";
+    ctx.font = "900 11px system-ui";
+    ctx.fillText(top, x, y + 18);
+
+    // Texto opcional abajo
+    if (bottom) {
+      ctx.fillStyle = "rgba(10,35,66,.55)";
+      ctx.font = "800 10px system-ui";
+      ctx.fillText(bottom, x, y + 33);
+    }
+
+    ctx.restore();
+  },
+};
+
+// ---------------------------
+// Grid + Cards (12 slots fijos)
+// ---------------------------
+const storeUi = new Map(); // key(slotIndex) -> { type, storeId?, cardEl, chart, lastDataKey }
+let storesList = []; // stores reales del token (limitado a 12)
+
+function makeSlotCard(slotIndex, storeOrNull) {
+  const isEmpty = !storeOrNull;
+
+  const storeId = isEmpty ? `empty-${slotIndex}` : storeOrNull.id;
+  const storeName = isEmpty ? "—" : (storeOrNull.name || storeOrNull.id);
+
+  const card = document.createElement("article");
+  card.className = "store-card";
+  card.setAttribute("data-slot", String(slotIndex));
+  card.setAttribute("data-storeid", storeId);
+
+  // Nota: mantenemos estructura idéntica siempre (uniforme)
+  card.innerHTML = `
+    <div class="store-head">
+      <div class="store-name" title="${escapeHtml(storeName)}">${escapeHtml(storeName)}</div>
+      <div class="store-sub">${escapeHtml(isEmpty ? "" : storeId)}</div>
+    </div>
+
+    <div class="store-body">
+      <div class="store-chart">
+        <canvas></canvas>
+      </div>
+
+      <div class="store-stats">
+        <div class="stat-row"><span>Entrantes</span><span class="v-in">0</span></div>
+        <div class="stat-row"><span>Salientes</span><span class="v-out">0</span></div>
+        <div class="stat-row"><span>Niños</span><span class="v-child">0</span></div>
+        <div class="stat-row"><span>Empleados</span><span class="v-work">0</span></div>
+        <div class="stat-row"><span>Dentro</span><span class="v-instore">0</span></div>
+      </div>
+    </div>
+
+    <div class="store-foot">
+      <span class="pill ${isEmpty ? "pill-off" : ""}">${isEmpty ? "—" : "LIVE"}</span>
+      <span class="pill v-updated">—</span>
+    </div>
+  `;
+
+  // Si es slot vacío: igual creamos chart para que el layout sea idéntico (sin saltos)
+  const canvas = card.querySelector("canvas");
+  const ctx = canvas.getContext("2d");
+
+  const chart = new Chart(ctx, {
+    type: "doughnut",
+    data: {
+      labels: DONUT_LABELS,
+      datasets: [
+        {
+          data: [0, 0, 0, 0],
+          backgroundColor: DONUT_COLORS,
+          borderWidth: 1,
+        },
+      ],
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      cutout: "62%",
+      plugins: {
+        legend: { display: false },
+        tooltip: { enabled: false },
+        centerText: { value: 0, top: "DENTRO", bottom: "" },
+      },
+      animation: false,
+    },
+    plugins: [centerTextPlugin],
+  });
+
+  // En slots vacíos lo dejamos visualmente “apagado”
+  if (isEmpty) {
+    card.classList.add("is-empty");
+  }
+
+  storeUi.set(slotIndex, {
+    type: isEmpty ? "empty" : "store",
+    storeId: isEmpty ? null : storeOrNull.id,
+    cardEl: card,
+    chart,
+    lastDataKey: "",
+  });
+
+  return card;
+}
+
+function render12SlotsOnce() {
+  if (!tvGrid) return;
+
+  // Render una sola vez (sin parpadeos)
+  tvGrid.innerHTML = "";
+  storeUi.clear();
+
+  for (let i = 0; i < SLOTS; i++) {
+    const store = storesList[i] || null;
+    tvGrid.appendChild(makeSlotCard(i, store));
+  }
+}
+
+function updateStoreSlot(slotIndex, counters) {
+  const ui = storeUi.get(slotIndex);
+  if (!ui || ui.type !== "store" || !ui.storeId) return;
+
+  const entradas = Number(counters?.entradas || 0);
+  const salidas = Number(counters?.salidas || 0);
+  const inChild = Number(counters?.inChild || 0);
+  const workersIn = Number(counters?.workersIn || 0);
+  const dentro = Number(
+    counters?.dentro ?? Math.max(entradas - salidas, 0)
+  );
+
+  // Evita updates inútiles (menos carga, menos “micro-parpadeos”)
+  const dataKey = `${entradas}|${salidas}|${inChild}|${workersIn}|${dentro}`;
+  if (ui.lastDataKey === dataKey) return;
+  ui.lastDataKey = dataKey;
+
+  const el = ui.cardEl;
+
+  // stats (solo texto)
+  el.querySelector(".v-in").textContent = String(entradas);
+  el.querySelector(".v-out").textContent = String(salidas);
+  el.querySelector(".v-child").textContent = String(inChild);
+  el.querySelector(".v-work").textContent = String(workersIn);
+  el.querySelector(".v-instore").textContent = String(dentro);
+
+  // donut slices: Entrantes, Niños, Empleados, Salientes
+  ui.chart.data.datasets[0].data = [entradas, inChild, workersIn, salidas];
+
+  // centro: DENTRO
+  ui.chart.options.plugins.centerText.value = dentro;
+
+  // update sin animación
+  ui.chart.update("none");
+
+  // updated time
+  el.querySelector(".v-updated").textContent = new Date().toLocaleTimeString("es-CL", {
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false,
+  });
+}
+
 // ---------------------------
 // Main
 // ---------------------------
