@@ -135,8 +135,8 @@ function makeSlotCard(slotIndex, storeOrNull) {
 
     <!-- ✅ Estado (online/offline) arriba de los datos -->
     <div class="store-status">
-      <span class="status-dot status-unknown"></span>
-      <span class="status-text">—</span>
+      <span class="status-dot status-online"></span>
+      <span class="status-text">En línea</span>
     </div>
 
     <div class="store-body">
