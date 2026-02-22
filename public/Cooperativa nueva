@@ -1,236 +1,237 @@
-:root{
-  --bg: #f3f4f6;
-  --card: rgba(255,255,255,0.85);
-  --ink: #0A2342;
-  --muted: rgba(10,35,66,0.65);
-  --shadow: 0 10px 24px rgba(0,0,0,0.06);
-  --radius: 14px;
-}
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <title>Panel de Contador de Personas - Tiendas</title>
+  <link rel="stylesheet" href="./style.css" />
 
-*{ box-sizing: border-box; }
+  <!-- Flatpickr CSS -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/themes/material_blue.css">
+</head>
 
-.tv-body{
-  margin: 0;
-  font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
-  background: var(--bg);
-  color: var(--ink);
+<body>
+  <!-- ✅ HEADER AHORA ES STICKY + LAYOUT LEFT/RIGHT -->
+  <header class="header-bar">
+    <div class="header-left">
+      <img src="logo.png" alt="logo" class="logo">
+      <div class="header-text">
+        <h1>SmartCountify</h1>
+        <p>Contador de Personas en Tiempo Real</p>
+      </div>
+    </div>
 
-  min-height: 100vh;
-  display: grid;
-  grid-template-rows: auto 1fr; /* ✅ sin footer */
-}
+    <!-- ✅ USER BADGE DENTRO DEL HEADER AZUL -->
+    <section class="user-badge user-badge--in-header" id="userBadge" style="display:none;">
+      <span id="userInfo"></span>
+      <button id="logoutBtn" class="logout-btn">Salir</button>
+    </section>
+  </header>
 
-/* ----------------------------
-   HEADER: Cliente+Hora (centro) / Logo (derecha) / Título
----------------------------- */
-.tv-top{
-  position: relative;
-  padding: 14px 26px 10px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-}
+  <!-- PANEL DE LOGIN -->
+  <section class="login-panel" id="loginPanel">
+    <h2>Iniciar sesión</h2>
 
-/* bloque centrado */
-.tv-client-block{
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  text-align: center;
-}
+    <div class="login-card">
+      <div class="input-group">
+        <img src="user.png" class="input-icon-img" alt="">
+        <input type="text" id="usernameInput" placeholder="Usuario" />
+      </div>
 
-/* Cliente */
-.tv-client{
-  font-weight: 950;
-  font-size: 20px;
-}
+      <div class="input-group">
+        <img src="lock.png" class="input-icon-img" alt="lock">
+        <input type="password" id="passwordInput" placeholder="Contraseña" />
+      </div>
 
-/* Hora debajo del cliente */
-.tv-time{
-  font-size: 14px;
-  color: var(--muted);
-  font-weight: 850;
-  margin-top: 4px;
-}
+      <button id="loginBtn">Entrar</button>
+      <div id="loginStatus" class="login-status"></div>
+    </div>
+  </section>
 
-/* Logo arriba derecha (más grande) */
-.tv-client-logo{
-  position: absolute;   /* ✅ antes estaba mal escrito */
-  right: 26px;
-  top: 10px;
+  <!-- CONTENIDO PRINCIPAL -->
+  <main id="mainContent" class="app-shell" style="display: none;">
 
-  height: 140px;        /* ✅ cámbialo aquí para más grande */
-  width: auto;
-  object-fit: contain;
+    <!-- MENÚ -->
+    <aside class="sidebar">
+      <button class="nav-btn nav-btn--icon active" data-view="view-store" data-tip="Tienda" aria-label="Tienda">
+        <img src="tienda.png" class="nav-icon" alt="">
+      </button>
 
-  display: none;        /* tv.js lo activa cuando hay logo */
-}
+      <button class="nav-btn nav-btn--icon" data-view="view-charts" data-tip="Gráficos" aria-label="Gráficos">
+        <img src="graficos.png" class="nav-icon" alt="">
+      </button>
 
-/* Título centrado debajo */
-.tv-title{
-  margin: 18px 0 0;     /* ✅ separa del cliente/hora y baja un poco el título */
-  text-align: center;
-  font-size: 30px;
-  font-weight: 900;
-  letter-spacing: 0.2px;
-}
+      <button class="nav-btn nav-btn--icon" data-view="view-calendar" data-tip="Calendario" aria-label="Calendario">
+        <img src="calendario.png" class="nav-icon" alt="">
+      </button>
+    </aside>
 
-/* ----------------------------
-   MAIN / GRID
----------------------------- */
-.tv-main{
-  padding: 24px 26px 16px; /* ✅ más espacio arriba para que las cards bajen */
-}
+    <section class="content">
 
-/* ✅ 4 por fila */
-.tv-grid{
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 18px;
-}
+      <section class="client-selector" id="clientSelectorSection" style="display: none;">
+        <h2>Seleccionar cliente</h2>
+        <label>
+          Cliente:
+          <select id="clientSelect"></select>
+        </label>
+      </section>
 
-/* ✅ Cards creadas por tv.js */
-.store-card{
-  background: var(--card);
-  border-radius: var(--radius);
-  box-shadow: var(--shadow);
-  padding: 12px;
-  overflow: hidden;
+      <section class="store-selector" id="storeSelectorSection">
+        <h2>Seleccionar tienda</h2>
+        <label>
+          Tienda:
+          <select id="storeSelect"></select>
+        </label>
+      </section>
 
-  height: 255px;
-  display: grid;
-  grid-template-rows: auto 1fr auto;
-}
+      <!-- VISTA 1: TIENDA -->
+      <section id="view-store" class="view active-view">
+        <section class="toolbar">
+          <button id="refreshBtn">Actualizar ahora</button>
+          <button id="forceRefreshBtn" type="button">🔄 Confirmar / Actualizar️</button>
+          <span id="refreshToast" class="refresh-toast"></span>
 
-.store-card.is-empty{
-  opacity: 0.55;
-}
+        <button id="resetStoreBtn" type="button" class="reset-btn" style="display:none;">
+          🧹 Reset tienda (Admin)
+      </button>
+      
+          <label>
+            Auto-actualizar cada
+            <select id="refreshInterval">
+              <option value="0">No auto</option>
+              <option value="5000">5 s</option>
+              <option value="10000" selected>10 s</option>
+              <option value="30000">30 s</option>
+            </select>
+          </label>
 
-/* Header de card */
-.store-head{ margin-bottom: 6px; }
+          <button id="exportNowBtn">Exportar Excel (ahora)</button>
 
-.store-name{
-  font-weight: 900;
-  font-size: 16px;
-  margin: 2px 0 2px;
-  color: var(--ink);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
+          <label>
+            Exportar día:
+            <span class="date-field">
+              <span class="date-input-wrap">
+                <span class="date-icon">📅</span>
+                <input id="exportDate" class="date-input" type="text" placeholder="dd/mm/yyyy" inputmode="numeric" />
+              </span>
 
-.store-sub{
-  font-size: 12px;
-  color: var(--muted);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
+              <button type="button" class="date-today-btn" data-today-for="exportDate">Hoy</button>
+              <button type="button" class="date-clear-btn" data-clear-for="exportDate">Limpiar</button>
+            </span>
+          </label>
 
-/* Body: donut + stats */
-.store-body{
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 10px;
-  align-items: center;
-  min-height: 0;
-}
+          <button id="exportDayBtn">Exportar Excel (día)</button>
+        </section>
 
-.store-chart{
-  position: relative;
-  height: 170px;
-  width: 100%;
-}
+        <section id="sensorsContainer"></section>
+      </section>
 
-.store-chart canvas{
-  width: 100% !important;
-  height: 100% !important;
-}
+      <!-- VISTA 2: GRÁFICOS -->
+      <section id="view-charts" class="view">
+        <h2>Gráficos</h2>
 
-/* Stats */
-.store-stats{
-  display: grid;
-  gap: 6px;
-  font-size: 13px;
-}
+        <section class="donut-section">
+          <div class="donut-head">
+            <h3 style="margin:0;">Distribución de eventos (tienda actual)</h3>
+            <button id="pinDonutBtn" type="button">📌 Fijar info (OFF)</button>
+          </div>
 
-.stat-row{
-  display: flex;
-  justify-content: space-between;
-  gap: 10px;
-  padding: 3px 6px;
-  border-radius: 10px;
-  background: rgba(255,255,255,0.55);
-  border: 1px solid rgba(0,0,0,0.04);
-}
+          <div class="donut-row">
+            <div class="donut-wrap">
+              <canvas id="donutCanvas" width="520" height="320"></canvas>
+            </div>
 
-.stat-row span:first-child{
-  color: rgba(10,35,66,.80);
-  font-weight: 800;
-}
+            <div id="donutPinnedPanel" class="donut-pinned" style="display:none;"></div>
+          </div>
+        </section>
 
-.stat-row span:last-child{
-  font-weight: 900;
-}
+        <hr style="opacity:.25; margin: 18px 0;" />
 
-/* Footer de card */
-.store-foot{
-  margin-top: 8px;
-  display: flex;
-  justify-content: space-between;
-  gap: 10px;
-}
+        <h2>Gráfico por día / rango</h2>
 
-.pill{
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 12px;
-  font-weight: 900;
-  padding: 4px 10px;
-  border-radius: 999px;
-  background: rgba(10,35,66,0.08);
-  color: rgba(10,35,66,.90);
-  border: 1px solid rgba(10,35,66,0.08);
-}
+        <div class="tool-row">
+          <label>
+            Fecha (o rango):
+            <span class="date-field">
+              <span class="date-input-wrap">
+                <span class="date-icon">📅</span>
+                <input id="chartDate" class="date-input" type="text" placeholder="dd/mm/yyyy o rango" inputmode="numeric" />
+              </span>
 
-.pill-off{
-  background: rgba(0,0,0,0.06);
-  border-color: rgba(0,0,0,0.06);
-  color: rgba(0,0,0,0.55);
-}
+              <button type="button" class="date-today-btn" data-today-for="chartDate">Hoy</button>
+              <button type="button" class="date-clear-btn" data-clear-for="chartDate">Limpiar</button>
+            </span>
+          </label>
 
-/* ----------------------------
-   Error overlay
----------------------------- */
-.tv-error{
-  position: fixed;
-  inset: 0;
-  display: none;
-  align-items: center;
-  justify-content: center;
-  background: rgba(0,0,0,0.35);
-  z-index: 9999;
-}
+          <button id="loadChartBtn">Cargar gráfico</button>
+        </div>
 
-.tv-error-box{
-  background: rgba(255,255,255,0.95);
-  border-radius: 16px;
-  box-shadow: 0 20px 50px rgba(0,0,0,0.20);
-  padding: 18px;
-  width: min(520px, calc(100vw - 40px));
-}
+        <div id="inlineWrapChart" class="inline-wrap" aria-label="Calendario inline (Gráfico)"></div>
 
-.tv-error-box h2{
-  margin: 0 0 8px;
-  font-size: 18px;
-  font-weight: 950;
-  color: var(--ink);
-}
+        <div class="chart-wrap">
+          <canvas id="chartCanvas"></canvas>
+        </div>
+      </section>
 
-.tv-error-box p{
-  margin: 0;
-  color: rgba(10,35,66,.75);
-  font-weight: 700;
-  white-space: pre-line;
-}
+      <!-- VISTA 3: RESUMEN -->
+      <section id="view-calendar" class="view">
+        <h2>Resumen por día</h2>
+        <p class="view-desc">
+          Selecciona un día para ver el resumen (entradas, salidas, dentro).
+        </p>
+
+        <div class="tool-row">
+          <label>
+            Día:
+            <span class="date-field">
+              <span class="date-input-wrap">
+                <span class="date-icon">📅</span>
+                <input id="historyDate" class="date-input" type="text" placeholder="dd/mm/yyyy" inputmode="numeric" />
+              </span>
+
+              <button type="button" class="date-today-btn" data-today-for="historyDate">Hoy</button>
+              <button type="button" class="date-clear-btn" data-clear-for="historyDate">Limpiar</button>
+            </span>
+          </label>
+
+          <button id="loadHistoryBtn">Ver resumen</button>
+        </div>
+
+        <div id="inlineWrapHistory" class="inline-wrap" aria-label="Calendario inline (Resumen)"></div>
+
+        <section id="historyResult" class="history-box">
+          <p>Selecciona una fecha para ver el resumen del día.</p>
+        </section>
+      </section>
+
+    </section>
+
+    <!-- MODAL -->
+    <section id="sessionWarningModal" class="modal-overlay" style="display: none;">
+      <div class="modal-box">
+        <h2>Sesión inactiva</h2>
+        <p>
+          No se ha detectado actividad. Serás desconectado en
+          <strong><span id="countdownSeconds">60</span> segundos</strong>.
+        </p>
+        <div class="modal-actions">
+          <button id="stayLoggedBtn">Seguir conectado</button>
+          <button id="logoutNowBtn" class="logout-btn">Cerrar sesión ahora</button>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <footer>
+    <small>SmartCountify Sistema Contador de Personas Creado por Riocom-2026</small>
+  </footer>
+
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+  <script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/es.js"></script>
+
+  <script src="app.js"></script>
+</body>
+</html>
