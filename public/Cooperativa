@@ -21,7 +21,7 @@
 }
 
 /* ----------------------------
-   HEADER: Cliente+Hora (centro) / Logo (derecha) / Título
+   HEADER: Cliente+Hora (izq) / Logo (derecha) / Título
 ---------------------------- */
 .tv-top{
   position: relative;
@@ -31,7 +31,7 @@
   align-items: center;
 }
 
-/* bloque centrado */
+/* bloque cliente/hora arriba a la izquierda */
 .tv-client-block{
   width: 100%;
   display: flex;
@@ -54,9 +54,9 @@
   margin-top: 4px;
 }
 
-/* Logo arriba derecha (más grande) */
+/* Logo arriba derecha */
 .tv-client-logo{
-  position: absolute;   /* ✅ antes estaba mal escrito */
+  position: absolute;
   right: 26px;
   top: 8px;
 
@@ -69,7 +69,7 @@
 
 /* Título centrado debajo */
 .tv-title{
-  margin: 1px 0 0;     /* ✅ separa del cliente/hora y baja un poco el título */
+  margin: 1px 0 0;
   text-align: center;
   font-size: 38px;
   font-weight: 800;
@@ -80,7 +80,7 @@
    MAIN / GRID
 ---------------------------- */
 .tv-main{
-  padding: 20px 22px 14px; /* ✅ más espacio arriba para que las cards bajen */
+  padding: 20px 22px 14px;
 }
 
 /* ✅ 4 por fila */
@@ -102,7 +102,6 @@
   height: 240px;
   display: flex;
   flex-direction: column;
-  grid-template-rows: auto 1fr auto;
 }
 
 .store-card.is-empty{
@@ -110,9 +109,10 @@
 }
 
 /* Header de card */
-.store-head{ 
-    position: relative;
-    margin-bottom: 6px; }
+.store-head{
+  position: relative;
+  margin-bottom: 6px;
+}
 
 .store-name{
   font-weight: 900;
@@ -138,7 +138,6 @@
   grid-template-columns: 1fr 1fr;
   gap: 2px;
   align-items: start;
-  align-items: start;
 }
 
 .store-chart{
@@ -152,12 +151,38 @@
   height: 100% !important;
 }
 
-/* Stats */
+/* ----------------------------
+   Stats (columna derecha)
+---------------------------- */
 .store-stats{
+  position: relative;      /* ✅ clave para status absolute */
   max-height: 160px;
   display: grid;
   gap: 8px;
   font-size: 12px;
+}
+
+/* ✅ Estado flotante (NO empuja los rows) */
+.store-status{
+  position: absolute;
+  top: -2px;               /* ajusta si quieres */
+  left: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+
+  padding: 4px 6px;
+  border-radius: 10px;
+  background: rgba(255,255,255,0.55);
+  font-weight: 900;
+  color: rgba(10,35,66,.85);
+
+  pointer-events: none;
+}
+
+/* ✅ Deja espacio para que el primer row no choque con el status */
+.store-stats .stat-row:first-of-type{
+  margin-top: 22px;        /* ajusta 18-26 si quieres más/menos */
 }
 
 .stat-row{
@@ -179,9 +204,51 @@
   font-weight: 900;
 }
 
-/* Footer de card */
+/* Etiqueta con dot de color (métricas) */
+.stat-label{
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.dot{
+  width: 9px;
+  height: 9px;
+  min-width: 10px;
+  min-height: 10px;
+  border-radius: 999px;
+  display: inline-block;
+  background: #999;
+  border: 1px solid rgba(0,0,0,0.20);
+}
+
+.dot-inside{
+  background: #0A2342;
+}
+
+/* Estado online/offline: SOLO 1 círculo */
+.status-dot{
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  box-shadow: 0 0 0 2px rgba(255,255,255,0.65);
+}
+
+.status-online{  background: #19a34a; }  /* verde */
+.status-offline{ background: #dc2626; }  /* rojo */
+.status-unknown{ background: #9ca3af; }  /* gris */
+
+.status-text{
+  font-weight: 900;
+  font-size: 12px;
+  color: rgba(10,35,66,.85);
+}
+
+/* ----------------------------
+   Footer de card
+---------------------------- */
 .store-foot{
-  margin-top: 8px;
+  margin-top: auto;        /* ✅ mantiene LIVE/hora abajo sin que nada lo tape */
   display: flex;
   justify-content: space-between;
   gap: 8px;
@@ -239,51 +306,4 @@
   color: rgba(10,35,66,.75);
   font-weight: 700;
   white-space: pre-line;
-}
-
-.stat-label{
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-}
-
-.dot{
-    width: 9px;
-    height: 9px;
-    min-width: 10px;
-    min-height: 10px;
-    border-radius: 999px;
-    display: inline-block;
-    background: #999;
-    border: 1px solid rgba(0,0,0,0.20);
-}
-
-.dot-inside{
-    background: #0A2342;
-}
-
-.store-status{
-  width: 100%;
-  padding: 6px 8px;
-  margin-bottom: 6px;
-  border-radius: 10px;
-  background: rgba(255,255,255,0.55);
-  font-weight: 900;
-  color: rgba(10,35,66,.85);
-}
-
-.status-dot{
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-}
-
-.status-online{ background: #19a34a; }   /* verde /
-.status-offline{ background: #dc2626; }  / rojo /
-.status-unknown{ background: #9ca3af; }  / gris */
-
-.status-text{
-  font-weight: 900;
-  font-size: 12px;
-  color: rgba(10,35,66,.85);
 }
