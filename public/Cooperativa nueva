@@ -1,237 +1,33 @@
-<!DOCTYPE html>
-<html lang="es">
-<head>
-  <meta charset="UTF-8" />
-  <title>Panel de Contador de Personas - Tiendas</title>
-  <link rel="stylesheet" href="./style.css" />
+card.innerHTML = `
+    <div class="store-head">
+      <div class="store-name" title="${escapeHtml(storeName)}">${escapeHtml(storeName)}</div>
+      <div class="store-sub">${escapeHtml(isEmpty ? "" : storeId)}</div>
+    </div>
 
-  <!-- Flatpickr CSS -->
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/themes/material_blue.css">
-</head>
+    <div class="store-body">
+      <div class="store-chart">
+        <canvas></canvas>
+      </div>
 
-<body>
-  <!-- ✅ HEADER AHORA ES STICKY + LAYOUT LEFT/RIGHT -->
-  <header class="header-bar">
-    <div class="header-left">
-      <img src="logo.png" alt="logo" class="logo">
-      <div class="header-text">
-        <h1>SmartCountify</h1>
-        <p>Contador de Personas en Tiempo Real</p>
+      <div class="store-stats">
+        <div class="stat-row"><span>Entrantes</span><span class="v-in">0</span></div>
+        <div class="stat-row"><span>Salientes</span><span class="v-out">0</span></div>
+        <div class="stat-row"><span>Niños</span><span class="v-child">0</span></div>
+        <div class="stat-row"><span>Empleados</span><span class="v-work">0</span></div>
+        <div class="stat-row"><span>Dentro</span><span class="v-instore">0</span></div>
       </div>
     </div>
 
-    <!-- ✅ USER BADGE DENTRO DEL HEADER AZUL -->
-    <section class="user-badge user-badge--in-header" id="userBadge" style="display:none;">
-      <span id="userInfo"></span>
-      <button id="logoutBtn" class="logout-btn">Salir</button>
-    </section>
-  </header>
-
-  <!-- PANEL DE LOGIN -->
-  <section class="login-panel" id="loginPanel">
-    <h2>Iniciar sesión</h2>
-
-    <div class="login-card">
-      <div class="input-group">
-        <img src="user.png" class="input-icon-img" alt="">
-        <input type="text" id="usernameInput" placeholder="Usuario" />
-      </div>
-
-      <div class="input-group">
-        <img src="lock.png" class="input-icon-img" alt="lock">
-        <input type="password" id="passwordInput" placeholder="Contraseña" />
-      </div>
-
-      <button id="loginBtn">Entrar</button>
-      <div id="loginStatus" class="login-status"></div>
+    <div class="store-foot">
+      <span class="pill ${isEmpty ? "pill-off" : ""}">${isEmpty ? "—" : "LIVE"}</span>
+      <span class="pill v-updated">—</span>
     </div>
-  </section>
-
-  <!-- CONTENIDO PRINCIPAL -->
-  <main id="mainContent" class="app-shell" style="display: none;">
-
-    <!-- MENÚ -->
-    <aside class="sidebar">
-      <button class="nav-btn nav-btn--icon active" data-view="view-store" data-tip="Tienda" aria-label="Tienda">
-        <img src="tienda.png" class="nav-icon" alt="">
-      </button>
-
-      <button class="nav-btn nav-btn--icon" data-view="view-charts" data-tip="Gráficos" aria-label="Gráficos">
-        <img src="graficos.png" class="nav-icon" alt="">
-      </button>
-
-      <button class="nav-btn nav-btn--icon" data-view="view-calendar" data-tip="Calendario" aria-label="Calendario">
-        <img src="calendario.png" class="nav-icon" alt="">
-      </button>
-    </aside>
-
-    <section class="content">
-
-      <section class="client-selector" id="clientSelectorSection" style="display: none;">
-        <h2>Seleccionar cliente</h2>
-        <label>
-          Cliente:
-          <select id="clientSelect"></select>
-        </label>
-      </section>
-
-      <section class="store-selector" id="storeSelectorSection">
-        <h2>Seleccionar tienda</h2>
-        <label>
-          Tienda:
-          <select id="storeSelect"></select>
-        </label>
-      </section>
-
-      <!-- VISTA 1: TIENDA -->
-      <section id="view-store" class="view active-view">
-        <section class="toolbar">
-          <button id="refreshBtn">Actualizar ahora</button>
-          <button id="forceRefreshBtn" type="button">🔄 Confirmar / Actualizar️</button>
-          <span id="refreshToast" class="refresh-toast"></span>
-
-        <button id="resetStoreBtn" type="button" class="reset-btn" style="display:none;">
-          🧹 Reset tienda (Admin)
-      </button>
-      
-          <label>
-            Auto-actualizar cada
-            <select id="refreshInterval">
-              <option value="0">No auto</option>
-              <option value="5000">5 s</option>
-              <option value="10000" selected>10 s</option>
-              <option value="30000">30 s</option>
-            </select>
-          </label>
-
-          <button id="exportNowBtn">Exportar Excel (ahora)</button>
-
-          <label>
-            Exportar día:
-            <span class="date-field">
-              <span class="date-input-wrap">
-                <span class="date-icon">📅</span>
-                <input id="exportDate" class="date-input" type="text" placeholder="dd/mm/yyyy" inputmode="numeric" />
-              </span>
-
-              <button type="button" class="date-today-btn" data-today-for="exportDate">Hoy</button>
-              <button type="button" class="date-clear-btn" data-clear-for="exportDate">Limpiar</button>
-            </span>
-          </label>
-
-          <button id="exportDayBtn">Exportar Excel (día)</button>
-        </section>
-
-        <section id="sensorsContainer"></section>
-      </section>
-
-      <!-- VISTA 2: GRÁFICOS -->
-      <section id="view-charts" class="view">
-        <h2>Gráficos</h2>
-
-        <section class="donut-section">
-          <div class="donut-head">
-            <h3 style="margin:0;">Distribución de eventos (tienda actual)</h3>
-            <button id="pinDonutBtn" type="button">📌 Fijar info (OFF)</button>
-          </div>
-
-          <div class="donut-row">
-            <div class="donut-wrap">
-              <canvas id="donutCanvas" width="520" height="320"></canvas>
-            </div>
-
-            <div id="donutPinnedPanel" class="donut-pinned" style="display:none;"></div>
-          </div>
-        </section>
-
-        <hr style="opacity:.25; margin: 18px 0;" />
-
-        <h2>Gráfico por día / rango</h2>
-
-        <div class="tool-row">
-          <label>
-            Fecha (o rango):
-            <span class="date-field">
-              <span class="date-input-wrap">
-                <span class="date-icon">📅</span>
-                <input id="chartDate" class="date-input" type="text" placeholder="dd/mm/yyyy o rango" inputmode="numeric" />
-              </span>
-
-              <button type="button" class="date-today-btn" data-today-for="chartDate">Hoy</button>
-              <button type="button" class="date-clear-btn" data-clear-for="chartDate">Limpiar</button>
-            </span>
-          </label>
-
-          <button id="loadChartBtn">Cargar gráfico</button>
-        </div>
-
-        <div id="inlineWrapChart" class="inline-wrap" aria-label="Calendario inline (Gráfico)"></div>
-
-        <div class="chart-wrap">
-          <canvas id="chartCanvas"></canvas>
-        </div>
-      </section>
-
-      <!-- VISTA 3: RESUMEN -->
-      <section id="view-calendar" class="view">
-        <h2>Resumen por día</h2>
-        <p class="view-desc">
-          Selecciona un día para ver el resumen (entradas, salidas, dentro).
-        </p>
-
-        <div class="tool-row">
-          <label>
-            Día:
-            <span class="date-field">
-              <span class="date-input-wrap">
-                <span class="date-icon">📅</span>
-                <input id="historyDate" class="date-input" type="text" placeholder="dd/mm/yyyy" inputmode="numeric" />
-              </span>
-
-              <button type="button" class="date-today-btn" data-today-for="historyDate">Hoy</button>
-              <button type="button" class="date-clear-btn" data-clear-for="historyDate">Limpiar</button>
-            </span>
-          </label>
-
-          <button id="loadHistoryBtn">Ver resumen</button>
-        </div>
-
-        <div id="inlineWrapHistory" class="inline-wrap" aria-label="Calendario inline (Resumen)"></div>
-
-        <section id="historyResult" class="history-box">
-          <p>Selecciona una fecha para ver el resumen del día.</p>
-        </section>
-      </section>
-
-    </section>
-
-    <!-- MODAL -->
-    <section id="sessionWarningModal" class="modal-overlay" style="display: none;">
-      <div class="modal-box">
-        <h2>Sesión inactiva</h2>
-        <p>
-          No se ha detectado actividad. Serás desconectado en
-          <strong><span id="countdownSeconds">60</span> segundos</strong>.
-        </p>
-        <div class="modal-actions">
-          <button id="stayLoggedBtn">Seguir conectado</button>
-          <button id="logoutNowBtn" class="logout-btn">Cerrar sesión ahora</button>
-        </div>
-      </div>
-    </section>
-
-  </main>
-
-  <footer>
-    <small>SmartCountify Sistema Contador de Personas Creado por Riocom-2026</small>
-  </footer>
-
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-
-  <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
-  <script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/es.js"></script>
-
-  <script src="app.js"></script>
-</body>
-</html>
+  `;
+  
+  // ✅ dots: colores dinámicos desde DONUT_COLORS
+card.querySelectorAll(".dot[data-dot]").forEach((dot) => {
+  const index = Number(dot.dataset.dot);
+  if (Number.isFinite(index) && DONUT_COLORS[index]) {
+    dot.style.backgroundColor = DONUT_COLORS[index];
+  }
+});
