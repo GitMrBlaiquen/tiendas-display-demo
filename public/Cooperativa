@@ -5,7 +5,7 @@
 // - Estado LIVE: /api/store/status?storeId=...
 // - 12 slots fijos (4x3), cards uniformes, sin parpadeos
 // - Donut con "DENTRO" al centro (plugin)
-// - ✅ Estado (En línea / Fuera de línea) SIN círculos y arriba de la columna de datos (derecha)
+// - ✅ Estado con 1 círculo (verde/rojo) SIN empujar stats (absolute)
 
 const BASE_URL = window.location.origin;
 const CONFIG_URL = `${BASE_URL}/api/tv/config`;
@@ -128,7 +128,6 @@ function makeSlotCard(slotIndex, storeOrNull) {
   card.setAttribute("data-slot", String(slotIndex));
   card.setAttribute("data-storeid", storeId);
 
-  // ✅ Estado se mueve arriba de la columna de datos (derecha), SIN círculo
   card.innerHTML = `
     <div class="store-head">
       <div class="store-name" title="${escapeHtml(storeName)}">${escapeHtml(storeName)}</div>
@@ -142,8 +141,9 @@ function makeSlotCard(slotIndex, storeOrNull) {
 
       <div class="store-stats">
 
-        <!-- ✅ Estado (SIN círculos) -->
-        <div class="store-status">
+        <!-- ✅ Estado flotante (NO ocupa espacio) -->
+        <div class="store-status" aria-label="Estado sensor">
+          <span class="status-dot status-unknown"></span>
           <span class="status-text">—</span>
         </div>
 
@@ -180,7 +180,7 @@ function makeSlotCard(slotIndex, storeOrNull) {
     </div>
   `;
 
-  // ✅ dots: colores dinámicos desde DONUT_COLORS (mapeo por índice)
+  // ✅ dots: colores dinámicos desde DONUT_COLORS
   card.querySelectorAll(".dot[data-dot]").forEach((dot) => {
     const index = Number(dot.dataset.dot);
     if (Number.isFinite(index) && DONUT_COLORS[index]) {
@@ -188,7 +188,7 @@ function makeSlotCard(slotIndex, storeOrNull) {
     }
   });
 
-  // (Dentro) no es slice, lo dejamos neutro
+  // "Dentro" no es slice
   const insideDot = card.querySelector(".dot-inside");
   if (insideDot) insideDot.style.backgroundColor = "rgba(10,35,66,.35)";
 
@@ -249,9 +249,14 @@ function render12SlotsOnce() {
 function applyOnlineStatusToCard(cardEl, online) {
   if (!cardEl) return;
 
+  const dot = cardEl.querySelector(".store-status .status-dot");
   const txt = cardEl.querySelector(".store-status .status-text");
+
+  if (dot) {
+    dot.classList.remove("status-online", "status-offline", "status-unknown");
+    dot.classList.add(online ? "status-online" : "status-offline");
+  }
   if (txt) {
-    // ✅ SIN emojis y SIN círculos (solo texto)
     txt.textContent = online ? "En línea" : "Fuera de línea";
   }
 }
@@ -268,14 +273,13 @@ function updateStoreSlot(slotIndex, counters, status) {
 
   const online = !!status?.online;
 
-  // dataKey incluye online para actualizar si cambia estado
   const dataKey = `${entradas}|${salidas}|${inChild}|${workersIn}|${dentro}|${online ? 1 : 0}`;
   if (ui.lastDataKey === dataKey) return;
   ui.lastDataKey = dataKey;
 
   const el = ui.cardEl;
 
-  // ✅ Estado online/offline (texto)
+  // ✅ Estado
   applyOnlineStatusToCard(el, online);
 
   // stats
@@ -285,7 +289,7 @@ function updateStoreSlot(slotIndex, counters, status) {
   el.querySelector(".v-work").textContent = String(workersIn);
   el.querySelector(".v-instore").textContent = String(dentro);
 
-  // donut slices: Entrantes, Niños, Empleados, Salientes
+  // donut
   ui.chart.data.datasets[0].data = [entradas, inChild, workersIn, salidas];
   ui.chart.options.plugins.centerText.value = dentro;
   ui.chart.update("none");
@@ -315,7 +319,7 @@ async function loadConfigAndBuild() {
   const label = cfg?.label || "SmartCountify";
   const logo = String(cfg?.logo || "").trim();
 
-  // theme opcional desde API (si existe)
+  // theme opcional
   const themeBg = cfg?.theme?.bg;
   const themeInk = cfg?.theme?.ink;
   if (themeBg) document.documentElement.style.setProperty("--bg", themeBg);
@@ -339,10 +343,7 @@ async function loadConfigAndBuild() {
     return false;
   }
 
-  // Limitamos a 12 para el layout fijo 4x3
   storesList = list.slice(0, SLOTS);
-
-  // Render fijo una vez
   render12SlotsOnce();
   return true;
 }
@@ -356,10 +357,9 @@ async function pollLive() {
         fetchJson(`${COUNTERS_URL}?storeId=${encodeURIComponent(s.id)}`),
         fetchJson(`${STATUS_URL}?storeId=${encodeURIComponent(s.id)}`),
       ]);
-
       updateStoreSlot(idx, counters, status);
     } catch {
-      // si falla una tienda, no se cae todo
+      // no tumba todo
     }
   });
 
