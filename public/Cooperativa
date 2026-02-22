@@ -5,6 +5,7 @@
 // - Estado LIVE: /api/store/status?storeId=...
 // - 12 slots fijos (4x3), cards uniformes, sin parpadeos
 // - Donut con "DENTRO" al centro (plugin)
+// - ✅ Estado (En línea / Fuera de línea) SIN círculos y arriba de la columna de datos (derecha)
 
 const BASE_URL = window.location.origin;
 const CONFIG_URL = `${BASE_URL}/api/tv/config`;
@@ -127,16 +128,11 @@ function makeSlotCard(slotIndex, storeOrNull) {
   card.setAttribute("data-slot", String(slotIndex));
   card.setAttribute("data-storeid", storeId);
 
+  // ✅ Estado se mueve arriba de la columna de datos (derecha), SIN círculo
   card.innerHTML = `
     <div class="store-head">
       <div class="store-name" title="${escapeHtml(storeName)}">${escapeHtml(storeName)}</div>
       <div class="store-sub">${escapeHtml(isEmpty ? "" : storeId)}</div>
-    </div>
-
-    <!-- ✅ Estado (online/offline) arriba de los datos -->
-    <div class="store-status">
-      <span class="status-dot status-online"></span>
-      <span class="status-text">En línea</span>
     </div>
 
     <div class="store-body">
@@ -145,6 +141,12 @@ function makeSlotCard(slotIndex, storeOrNull) {
       </div>
 
       <div class="store-stats">
+
+        <!-- ✅ Estado (SIN círculos) -->
+        <div class="store-status">
+          <span class="status-text">—</span>
+        </div>
+
         <div class="stat-row">
           <span class="stat-label"><span class="dot" data-dot="0"></span>Entrantes</span>
           <span class="v-in">0</span>
@@ -186,7 +188,7 @@ function makeSlotCard(slotIndex, storeOrNull) {
     }
   });
 
-  // (Dentro) sin slice, pero dejamos el dot con un color neutro si quieres
+  // (Dentro) no es slice, lo dejamos neutro
   const insideDot = card.querySelector(".dot-inside");
   if (insideDot) insideDot.style.backgroundColor = "rgba(10,35,66,.35)";
 
@@ -247,15 +249,10 @@ function render12SlotsOnce() {
 function applyOnlineStatusToCard(cardEl, online) {
   if (!cardEl) return;
 
-  const dot = cardEl.querySelector(".status-dot");
-  const txt = cardEl.querySelector(".status-text");
-
-  if (dot) {
-    dot.classList.remove("status-online", "status-offline", "status-unknown");
-    dot.classList.add(online ? "status-online" : "status-offline");
-  }
+  const txt = cardEl.querySelector(".store-status .status-text");
   if (txt) {
-    txt.textContent = online ? "🟢 En línea" : "🔴 Fuera de línea";
+    // ✅ SIN emojis y SIN círculos (solo texto)
+    txt.textContent = online ? "En línea" : "Fuera de línea";
   }
 }
 
@@ -278,7 +275,7 @@ function updateStoreSlot(slotIndex, counters, status) {
 
   const el = ui.cardEl;
 
-  // ✅ Estado online/offline
+  // ✅ Estado online/offline (texto)
   applyOnlineStatusToCard(el, online);
 
   // stats
