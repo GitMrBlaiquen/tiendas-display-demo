@@ -1,384 +1,289 @@
-// SmartCountify TV
-// - Sin login (solo token en URL /tv/:token)
-// - Config: /api/tv/config?token=...
-// - Datos LIVE: /api/store/counters?storeId=...
-// - Estado LIVE: /api/store/status?storeId=...
-// - 12 slots fijos (4x3), cards uniformes, sin parpadeos
-// - Donut con "DENTRO" al centro (plugin)
-// - ✅ Estado con 1 círculo (verde/rojo) SIN empujar stats (absolute)
-
-const BASE_URL = window.location.origin;
-const CONFIG_URL = `${BASE_URL}/api/tv/config`;
-const COUNTERS_URL = `${BASE_URL}/api/store/counters`;
-const STATUS_URL = `${BASE_URL}/api/store/status`;
-
-const tvGrid = document.getElementById("tvGrid");
-const tvClient = document.getElementById("tvClient");
-const tvClientLogo = document.getElementById("tvClientLogo");
-const tvClock = document.getElementById("tvClock");
-
-const tvError = document.getElementById("tvError");
-const tvErrorTitle = document.getElementById("tvErrorTitle");
-const tvErrorMsg = document.getElementById("tvErrorMsg");
-
-const POLL_MS = 2500;
-const SLOTS = 12;
-
-// Donut slices (4) — Dentro se muestra al centro
-const DONUT_LABELS = ["Entrantes", "Niños", "Empleados", "Salientes"];
-const DONUT_COLORS = ["#228B22", "#FFFF00", "#E9967A", "#0000CD"];
-
-// ---------------------------
-// Helpers UI
-// ---------------------------
-function showError(title, msg) {
-  if (tvErrorTitle) tvErrorTitle.textContent = title || "Error";
-  if (tvErrorMsg) tvErrorMsg.textContent = msg || "";
-  if (tvError) tvError.style.display = "flex";
+:root{
+  --bg: #63695E;
+  --card: rgba(255,187,191,0.85);
+  --ink: #0A2342;
+  --muted: rgba(10,35,66,0.65);
+  --shadow: 0 10px 24px rgba(0,0,0,0.06);
+  --radius: 14px;
 }
 
-function hideError() {
-  if (tvError) tvError.style.display = "none";
+*{ box-sizing: border-box; }
+
+.tv-body{
+  margin: 0;
+  font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+  background: var(--bg);
+  color: var(--ink);
+
+  min-height: 85vh;
+  display: grid;
+  grid-template-rows: auto 1fr; /* ✅ sin footer */
 }
 
-function pad2(n) {
-  return String(n).padStart(2, "0");
+/* ----------------------------
+   HEADER: Cliente+Hora (centro) / Logo (derecha) / Título
+---------------------------- */
+.tv-top{
+  position: relative;
+  padding: 10px 24px 8px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
 }
 
-function clockTick() {
-  const d = new Date();
-  const dd = pad2(d.getDate());
-  const mm = pad2(d.getMonth() + 1);
-  const yyyy = d.getFullYear();
-  const hh = pad2(d.getHours());
-  const mi = pad2(d.getMinutes());
-  const ss = pad2(d.getSeconds());
-  if (tvClock) tvClock.textContent = `${dd}-${mm}-${yyyy} ${hh}:${mi}:${ss}`;
+/* bloque centrado */
+.tv-client-block{
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  text-align: left;
 }
 
-function getTokenFromPath() {
-  const parts = window.location.pathname.split("/").filter(Boolean);
-  if (parts.length >= 2 && parts[0] === "tv") return parts[1];
-  return "";
+/* Cliente */
+.tv-client{
+  font-weight: 950;
+  font-size: 28px;
 }
 
-async function fetchJson(url) {
-  const res = await fetch(url, { cache: "no-store" });
-  if (!res.ok) {
-    const text = await res.text().catch(() => "");
-    throw new Error(text || `Error ${res.status}`);
-  }
-  return res.json();
+/* Hora debajo del cliente */
+.tv-time{
+  font-size: 20px;
+  color: var(--muted);
+  font-weight: 800;
+  margin-top: 4px;
 }
 
-function escapeHtml(s) {
-  return String(s ?? "")
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#039;");
+/* Logo arriba derecha (más grande) */
+.tv-client-logo{
+  position: absolute;   /* ✅ antes estaba mal escrito */
+  right: 26px;
+  top: 8px;
+
+  height: 100px;        /* ✅ cámbialo aquí para más grande */
+  width: auto;
+  object-fit: contain;
+
+  display: none;        /* tv.js lo activa cuando hay logo */
 }
 
-// ---------------------------
-// Donut center text plugin
-// ---------------------------
-const centerTextPlugin = {
-  id: "centerText",
-  afterDraw(chart, args, opts) {
-    const meta = chart.getDatasetMeta(0);
-    if (!meta?.data?.length) return;
-
-    const { ctx } = chart;
-    const x = meta.data[0].x;
-    const y = meta.data[0].y;
-
-    const inside = Number(opts?.value ?? 0);
-
-    ctx.save();
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
-
-    ctx.fillStyle = "#0A2342";
-    ctx.font = "900 26px system-ui";
-    ctx.fillText(String(inside), x, y - 6);
-
-    ctx.fillStyle = "rgba(10,35,66,.75)";
-    ctx.font = "900 11px system-ui";
-    ctx.fillText("DENTRO", x, y + 18);
-
-    ctx.restore();
-  },
-};
-
-// ---------------------------
-// Grid + Cards (12 slots fijos)
-// ---------------------------
-const storeUi = new Map(); // slotIndex -> ui
-let storesList = [];
-
-function makeSlotCard(slotIndex, storeOrNull) {
-  const isEmpty = !storeOrNull;
-
-  const storeId = isEmpty ? `empty-${slotIndex}` : storeOrNull.id;
-  const storeName = isEmpty ? "—" : storeOrNull.name || storeOrNull.id;
-
-  const card = document.createElement("article");
-  card.className = "store-card";
-  card.setAttribute("data-slot", String(slotIndex));
-  card.setAttribute("data-storeid", storeId);
-
-  card.innerHTML = `
-    <div class="store-head">
-      <div class="store-name" title="${escapeHtml(storeName)}">${escapeHtml(storeName)}</div>
-      <div class="store-sub">${escapeHtml(isEmpty ? "" : storeId)}</div>
-    </div>
-
-    <div class="store-body">
-      <div class="store-chart">
-        <canvas></canvas>
-      </div>
-
-      <div class="store-stats">
-
-        <!-- ✅ Estado flotante (NO ocupa espacio) -->
-        <div class="store-status" aria-label="Estado sensor">
-          <span class="status-dot status-unknown"></span>
-          <span class="status-text">—</span>
-        </div>
-
-        <div class="stat-row">
-          <span class="stat-label"><span class="dot" data-dot="0"></span>Entrantes</span>
-          <span class="v-in">0</span>
-        </div>
-
-        <div class="stat-row">
-          <span class="stat-label"><span class="dot" data-dot="3"></span>Salientes</span>
-          <span class="v-out">0</span>
-        </div>
-
-        <div class="stat-row">
-          <span class="stat-label"><span class="dot" data-dot="1"></span>Niños</span>
-          <span class="v-child">0</span>
-        </div>
-
-        <div class="stat-row">
-          <span class="stat-label"><span class="dot" data-dot="2"></span>Empleados</span>
-          <span class="v-work">0</span>
-        </div>
-
-        <div class="stat-row">
-          <span class="stat-label"><span class="dot dot-inside"></span>Dentro</span>
-          <span class="v-instore">0</span>
-        </div>
-      </div>
-    </div>
-
-    <div class="store-foot">
-      <span class="pill ${isEmpty ? "pill-off" : ""}">${isEmpty ? "—" : "LIVE"}</span>
-      <span class="pill v-updated">—</span>
-    </div>
-  `;
-
-  // ✅ dots: colores dinámicos desde DONUT_COLORS
-  card.querySelectorAll(".dot[data-dot]").forEach((dot) => {
-    const index = Number(dot.dataset.dot);
-    if (Number.isFinite(index) && DONUT_COLORS[index]) {
-      dot.style.backgroundColor = DONUT_COLORS[index];
-    }
-  });
-
-  // "Dentro" no es slice
-  const insideDot = card.querySelector(".dot-inside");
-  if (insideDot) insideDot.style.backgroundColor = "rgba(10,35,66,.35)";
-
-  const canvas = card.querySelector("canvas");
-  const ctx = canvas.getContext("2d");
-
-  const chart = new Chart(ctx, {
-    type: "doughnut",
-    data: {
-      labels: DONUT_LABELS,
-      datasets: [
-        {
-          data: [0, 0, 0, 0],
-          backgroundColor: DONUT_COLORS,
-          borderWidth: 1,
-        },
-      ],
-    },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      cutout: "62%",
-      plugins: {
-        legend: { display: false },
-        tooltip: { enabled: false },
-        centerText: { value: 0 },
-      },
-      animation: false,
-    },
-    plugins: [centerTextPlugin],
-  });
-
-  if (isEmpty) card.classList.add("is-empty");
-
-  storeUi.set(slotIndex, {
-    type: isEmpty ? "empty" : "store",
-    storeId: isEmpty ? null : storeOrNull.id,
-    cardEl: card,
-    chart,
-    lastDataKey: "",
-  });
-
-  return card;
+/* Título centrado debajo */
+.tv-title{
+  margin: 1px 0 0;     /* ✅ separa del cliente/hora y baja un poco el título */
+  text-align: center;
+  font-size: 38px;
+  font-weight: 800;
+  letter-spacing: 0.2px;
 }
 
-function render12SlotsOnce() {
-  if (!tvGrid) return;
-
-  tvGrid.innerHTML = "";
-  storeUi.clear();
-
-  for (let i = 0; i < SLOTS; i++) {
-    const store = storesList[i] || null;
-    tvGrid.appendChild(makeSlotCard(i, store));
-  }
+/* ----------------------------
+   MAIN / GRID
+---------------------------- */
+.tv-main{
+  padding: 20px 22px 14px; /* ✅ más espacio arriba para que las cards bajen */
 }
 
-function applyOnlineStatusToCard(cardEl, online) {
-  if (!cardEl) return;
-
-  const dot = cardEl.querySelector(".store-status .status-dot");
-  const txt = cardEl.querySelector(".store-status .status-text");
-
-  if (dot) {
-    dot.classList.remove("status-online", "status-offline", "status-unknown");
-    dot.classList.add(online ? "status-online" : "status-offline");
-  }
-  if (txt) {
-    txt.textContent = online ? "En línea" : "Fuera de línea";
-  }
+/* ✅ 4 por fila */
+.tv-grid{
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 18px;
 }
 
-function updateStoreSlot(slotIndex, counters, status) {
-  const ui = storeUi.get(slotIndex);
-  if (!ui || ui.type !== "store" || !ui.storeId) return;
+/* ✅ Cards creadas por tv.js */
+.store-card{
+  position: relative;
+  background: var(--card);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 6px;
+  overflow: hidden;
 
-  const entradas = Number(counters?.entradas || 0);
-  const salidas = Number(counters?.salidas || 0);
-  const inChild = Number(counters?.inChild || 0);
-  const workersIn = Number(counters?.workersIn || 0);
-  const dentro = Number(counters?.dentro ?? Math.max(entradas - salidas, 0));
-
-  const online = !!status?.online;
-
-  const dataKey = `${entradas}|${salidas}|${inChild}|${workersIn}|${dentro}|${online ? 1 : 0}`;
-  if (ui.lastDataKey === dataKey) return;
-  ui.lastDataKey = dataKey;
-
-  const el = ui.cardEl;
-
-  // ✅ Estado
-  applyOnlineStatusToCard(el, online);
-
-  // stats
-  el.querySelector(".v-in").textContent = String(entradas);
-  el.querySelector(".v-out").textContent = String(salidas);
-  el.querySelector(".v-child").textContent = String(inChild);
-  el.querySelector(".v-work").textContent = String(workersIn);
-  el.querySelector(".v-instore").textContent = String(dentro);
-
-  // donut
-  ui.chart.data.datasets[0].data = [entradas, inChild, workersIn, salidas];
-  ui.chart.options.plugins.centerText.value = dentro;
-  ui.chart.update("none");
-
-  // updated time
-  el.querySelector(".v-updated").textContent = new Date().toLocaleTimeString("es-CL", {
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-    hour12: false,
-  });
+  height: 240px;
+  display: flex;
+  flex-direction: column;
+  grid-template-rows: auto 1fr auto;
 }
 
-// ---------------------------
-// Main
-// ---------------------------
-async function loadConfigAndBuild() {
-  hideError();
-
-  const token = getTokenFromPath();
-  if (!token) {
-    showError("Falta token", "Usa /tv/TOKEN\nEj: https://smartcountify.cl/tv/AB12x9KQ");
-    return false;
-  }
-
-  const cfg = await fetchJson(`${CONFIG_URL}?token=${encodeURIComponent(token)}`);
-  const label = cfg?.label || "SmartCountify";
-  const logo = String(cfg?.logo || "").trim();
-
-  // theme opcional
-  const themeBg = cfg?.theme?.bg;
-  const themeInk = cfg?.theme?.ink;
-  if (themeBg) document.documentElement.style.setProperty("--bg", themeBg);
-  if (themeInk) document.documentElement.style.setProperty("--ink", themeInk);
-
-  if (tvClient) tvClient.textContent = `Cliente: ${label}`;
-
-  if (tvClientLogo) {
-    if (logo) {
-      tvClientLogo.src = logo;
-      tvClientLogo.style.display = "block";
-    } else {
-      tvClientLogo.removeAttribute("src");
-      tvClientLogo.style.display = "none";
-    }
-  }
-
-  const list = Array.isArray(cfg?.stores) ? cfg.stores : [];
-  if (!list.length) {
-    showError("Sin tiendas", "Este token no tiene tiendas asignadas.");
-    return false;
-  }
-
-  storesList = list.slice(0, SLOTS);
-  render12SlotsOnce();
-  return true;
+.store-card.is-empty{
+  opacity: 0.55;
 }
 
-async function pollLive() {
-  if (!storesList.length) return;
+/* Header de card */
+.store-head{ 
+    position: relative;
+    margin-bottom: 6px; }
 
-  const tasks = storesList.map(async (s, idx) => {
-    try {
-      const [counters, status] = await Promise.all([
-        fetchJson(`${COUNTERS_URL}?storeId=${encodeURIComponent(s.id)}`),
-        fetchJson(`${STATUS_URL}?storeId=${encodeURIComponent(s.id)}`),
-      ]);
-      updateStoreSlot(idx, counters, status);
-    } catch {
-      // no tumba todo
-    }
-  });
-
-  await Promise.allSettled(tasks);
+.store-name{
+  font-weight: 900;
+  font-size: 16px;
+  margin: 2px 0 2px;
+  color: var(--ink);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-async function start() {
-  clockTick();
-  setInterval(clockTick, 1000);
-
-  try {
-    const ok = await loadConfigAndBuild();
-    if (!ok) return;
-
-    await pollLive();
-    setInterval(pollLive, POLL_MS);
-  } catch (e) {
-    showError("No se pudo cargar TV", e?.message || String(e));
-  }
+.store-sub{
+  font-size: 13px;
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-start();
+/* Body: donut + stats */
+.store-body{
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2px;
+  align-items: start;
+  align-items: start;
+}
+
+.store-chart{
+  position: relative;
+  height: 155px;
+  width: 80%;
+}
+
+.store-chart canvas{
+  width: 100% !important;
+  height: 100% !important;
+}
+
+/* Stats */
+.store-stats{
+  max-height: 160px;
+  display: grid;
+  gap: 8px;
+  font-size: 12px;
+}
+
+.stat-row{
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 3px 6px;
+  border-radius: 8px;
+  background: rgba(255,255,255,0.55);
+  border: 1px solid rgba(0,0,0,0.04);
+}
+
+.stat-row span:first-child{
+  color: rgba(10,35,66,.80);
+  font-weight: 800;
+}
+
+.stat-row span:last-child{
+  font-weight: 900;
+}
+
+/* Footer de card */
+.store-foot{
+  margin-top: 8px;
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.pill{
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 900;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: rgba(10,35,66,0.08);
+  color: rgba(10,35,66,.90);
+  border: 1px solid rgba(10,35,66,0.08);
+}
+
+.pill-off{
+  background: rgba(0,0,0,0.06);
+  border-color: rgba(0,0,0,0.06);
+  color: rgba(0,0,0,0.55);
+}
+
+/* ----------------------------
+   Error overlay
+---------------------------- */
+.tv-error{
+  position: fixed;
+  inset: 0;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0,0,0,0.35);
+  z-index: 9999;
+}
+
+.tv-error-box{
+  background: rgba(255,255,255,0.95);
+  border-radius: 16px;
+  box-shadow: 0 20px 50px rgba(0,0,0,0.20);
+  padding: 18px;
+  width: min(520px, calc(100vw - 40px));
+}
+
+.tv-error-box h2{
+  margin: 0 0 8px;
+  font-size: 18px;
+  font-weight: 950;
+  color: var(--ink);
+}
+
+.tv-error-box p{
+  margin: 0;
+  color: rgba(10,35,66,.75);
+  font-weight: 700;
+  white-space: pre-line;
+}
+
+.stat-label{
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.dot{
+    width: 9px;
+    height: 9px;
+    min-width: 10px;
+    min-height: 10px;
+    border-radius: 999px;
+    display: inline-block;
+    background: #999;
+    border: 1px solid rgba(0,0,0,0.20);
+}
+
+.dot-inside{
+    background: #0A2342;
+}
+
+.store-status{
+  width: 100%;
+  padding: 6px 8px;
+  margin-bottom: 6px;
+  border-radius: 10px;
+  background: rgba(255,255,255,0.55);
+  font-weight: 900;
+  color: rgba(10,35,66,.85);
+}
+
+.status-dot{
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+}
+
+.status-online{ background: #19a34a; }   /* verde /
+.status-offline{ background: #dc2626; }  / rojo /
+.status-unknown{ background: #9ca3af; }  / gris */
+
+.status-text{
+  font-weight: 900;
+  font-size: 12px;
+  color: rgba(10,35,66,.85);
+}
