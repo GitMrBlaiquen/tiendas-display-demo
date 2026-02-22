@@ -1,33 +1,61 @@
 card.innerHTML = `
-    <div class="store-head">
-      <div class="store-name" title="${escapeHtml(storeName)}">${escapeHtml(storeName)}</div>
-      <div class="store-sub">${escapeHtml(isEmpty ? "" : storeId)}</div>
+  <div class="store-head">
+    <div class="store-name" title="${escapeHtml(storeName)}">${escapeHtml(storeName)}</div>
+    <div class="store-sub">${escapeHtml(isEmpty ? "" : storeId)}</div>
+  </div>
+
+  <div class="store-body">
+    <div class="store-chart">
+      <canvas></canvas>
     </div>
 
-    <div class="store-body">
-      <div class="store-chart">
-        <canvas></canvas>
+    <div class="store-stats">
+
+      <div class="stat-row">
+        <span class="stat-label">
+          <span class="dot" data-dot="0"></span>
+          Entrantes
+        </span>
+        <span class="v-in">0</span>
       </div>
 
-      <div class="store-stats">
-        <div class="stat-row"><span>Entrantes</span><span class="v-in">0</span></div>
-        <div class="stat-row"><span>Salientes</span><span class="v-out">0</span></div>
-        <div class="stat-row"><span>Niños</span><span class="v-child">0</span></div>
-        <div class="stat-row"><span>Empleados</span><span class="v-work">0</span></div>
-        <div class="stat-row"><span>Dentro</span><span class="v-instore">0</span></div>
+      <div class="stat-row">
+        <span class="stat-label">
+          <span class="dot" data-dot="3"></span>
+          Salientes
+        </span>
+        <span class="v-out">0</span>
       </div>
-    </div>
 
-    <div class="store-foot">
-      <span class="pill ${isEmpty ? "pill-off" : ""}">${isEmpty ? "—" : "LIVE"}</span>
-      <span class="pill v-updated">—</span>
+      <div class="stat-row">
+        <span class="stat-label">
+          <span class="dot" data-dot="1"></span>
+          Niños
+        </span>
+        <span class="v-child">0</span>
+      </div>
+
+      <div class="stat-row">
+        <span class="stat-label">
+          <span class="dot" data-dot="2"></span>
+          Empleados
+        </span>
+        <span class="v-work">0</span>
+      </div>
+
+      <div class="stat-row">
+        <span class="stat-label">
+          <span class="dot dot-inside"></span>
+          Dentro
+        </span>
+        <span class="v-instore">0</span>
+      </div>
+
     </div>
-  `;
-  
-  // ✅ dots: colores dinámicos desde DONUT_COLORS
-card.querySelectorAll(".dot[data-dot]").forEach((dot) => {
-  const index = Number(dot.dataset.dot);
-  if (Number.isFinite(index) && DONUT_COLORS[index]) {
-    dot.style.backgroundColor = DONUT_COLORS[index];
-  }
-});
+  </div>
+
+  <div class="store-foot">
+    <span class="pill ${isEmpty ? "pill-off" : ""}">${isEmpty ? "—" : "LIVE"}</span>
+    <span class="pill v-updated">—</span>
+  </div>
+`;
