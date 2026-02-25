@@ -1,19 +1,56 @@
-function updateSelectorsVisibilityForView(viewId) {
+// ------------------------------
+// Menú lateral: cambiar vista
+// ------------------------------
+function showView(viewId) {
+  // Cambiar vista activa
+  views.forEach((v) => v.classList.remove("active-view"));
+  const el = document.getElementById(viewId);
+  if (el) el.classList.add("active-view");
+
+  // Activar botón del menú
+  navButtons.forEach((b) => b.classList.remove("active"));
+  const btn = document.querySelector(`.nav-btn[data-view="${viewId}"]`);
+  if (btn) btn.classList.add("active");
+
+  // Referencias a los selectores
+  const clientSelectorSection = document.getElementById("clientSelectorSection");
+  const storeSelectorSection = document.getElementById("storeSelectorSection");
+
   const isTerminal = viewId === "view-status-all";
 
-  // En Terminal: ocultamos ambos
+  // Guardar display original (solo la primera vez)
+  if (clientSelectorSection && !clientSelectorSection.dataset.prevDisplay) {
+    clientSelectorSection.dataset.prevDisplay =
+      clientSelectorSection.style.display || "";
+  }
+
+  if (storeSelectorSection && !storeSelectorSection.dataset.prevDisplay) {
+    storeSelectorSection.dataset.prevDisplay =
+      storeSelectorSection.style.display || "";
+  }
+
+  // Ocultar solo en Terminal
   if (isTerminal) {
     if (clientSelectorSection) clientSelectorSection.style.display = "none";
     if (storeSelectorSection) storeSelectorSection.style.display = "none";
-    return;
+  } else {
+    // Restaurar tienda siempre
+    if (storeSelectorSection) {
+      storeSelectorSection.style.display =
+        storeSelectorSection.dataset.prevDisplay || "";
+    }
+
+    // Restaurar cliente solo si es admin
+    if (clientSelectorSection) {
+      clientSelectorSection.style.display =
+        currentRole === "admin"
+          ? clientSelectorSection.dataset.prevDisplay || ""
+          : "none";
+    }
   }
 
-  // Fuera de Terminal: restauramos según tu lógica actual
-  if (clientSelectorSection) {
-    const shouldShowClient = currentRole === "admin" && (clients?.length || 0) > 0;
-    clientSelectorSection.style.display = shouldShowClient ? "block" : "none";
+  // Opcional: cargar estados automáticamente al entrar a Terminal
+  if (isTerminal && typeof loadTerminalStatuses === "function") {
+    loadTerminalStatuses();
   }
-
-  // La tienda siempre debe verse en las vistas normales
-  if (storeSelectorSection) storeSelectorSection.style.display = "block";
 }
