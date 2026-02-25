@@ -1,61 +1,2449 @@
-card.innerHTML = `
-  <div class="store-head">
-    <div class="store-name" title="${escapeHtml(storeName)}">${escapeHtml(storeName)}</div>
-    <div class="store-sub">${escapeHtml(isEmpty ? "" : storeId)}</div>
-  </div>
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <title>Panel de Contador de Personas - Tiendas</title>
+  <link rel="stylesheet" href="./style.css" />
 
-  <div class="store-body">
-    <div class="store-chart">
-      <canvas></canvas>
+  <!-- Flatpickr CSS -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/themes/material_blue.css">
+</head>
+
+<body>
+  <!-- ✅ HEADER AHORA ES STICKY + LAYOUT LEFT/RIGHT -->
+  <header class="header-bar">
+    <div class="header-left">
+      <img src="logo.png" alt="logo" class="logo">
+      <div class="header-text">
+        <h1>SmartCountify</h1>
+        <p>Contador de Personas en Tiempo Real</p>
+      </div>
     </div>
 
-    <div class="store-stats">
+    <!-- ✅ USER BADGE DENTRO DEL HEADER AZUL -->
+    <section class="user-badge user-badge--in-header" id="userBadge" style="display:none;">
+      <span id="userInfo"></span>
+      <button id="logoutBtn" class="logout-btn">Salir</button>
+    </section>
+  </header>
 
-      <div class="stat-row">
-        <span class="stat-label">
-          <span class="dot" data-dot="0"></span>
-          Entrantes
-        </span>
-        <span class="v-in">0</span>
+  <!-- PANEL DE LOGIN -->
+  <section class="login-panel" id="loginPanel">
+    <h2>Iniciar sesión</h2>
+
+    <div class="login-card">
+      <div class="input-group">
+        <img src="user.png" class="input-icon-img" alt="">
+        <input type="text" id="usernameInput" placeholder="Usuario" />
       </div>
 
-      <div class="stat-row">
-        <span class="stat-label">
-          <span class="dot" data-dot="3"></span>
-          Salientes
-        </span>
-        <span class="v-out">0</span>
+      <div class="input-group">
+        <img src="lock.png" class="input-icon-img" alt="lock">
+        <input type="password" id="passwordInput" placeholder="Contraseña" />
       </div>
 
-      <div class="stat-row">
-        <span class="stat-label">
-          <span class="dot" data-dot="1"></span>
-          Niños
-        </span>
-        <span class="v-child">0</span>
+      <button id="loginBtn">Entrar</button>
+      <div id="loginStatus" class="login-status"></div>
+    </div>
+  </section>
+
+  <!-- CONTENIDO PRINCIPAL -->
+  <main id="mainContent" class="app-shell" style="display: none;">
+
+    <!-- ✅ NUEVO: Botón toggle sidebar (overlay) -->
+    <button id="sbToggle" class="sb-toggle" type="button" aria-label="Abrir menú" aria-controls="sidebar" aria-expanded="false">
+      ☰
+    </button>
+
+    <!-- ✅ NUEVO: overlay -->
+    <div id="sbOverlay" class="sb-overlay" hidden></div>
+
+    <!-- ✅ NUEVO: Sidebar overlay (mantiene .nav-btn + data-view) -->
+    <aside id="sidebar" class="sidebar" aria-hidden="true">
+      <div class="sb-head">
+        <div class="sb-brand">
+          <div class="sb-logo">SC</div>
+          <div class="sb-title">
+            <div class="sb-name">SmartCountify</div>
+            <div class="sb-sub">Menú</div>
+          </div>
+        </div>
+
+        <button id="sbClose" class="sb-close" type="button" aria-label="Cerrar menú">✕</button>
       </div>
 
-      <div class="stat-row">
-        <span class="stat-label">
-          <span class="dot" data-dot="2"></span>
-          Empleados
-        </span>
-        <span class="v-work">0</span>
+      <div class="sb-nav">
+        <button class="nav-btn sb-item active" data-view="view-store" aria-label="Tienda">
+          <span class="sb-ico"><img src="tienda.png" class="nav-icon" alt=""></span>
+          <span class="sb-txt">Tienda</span>
+        </button>
+
+        <button class="nav-btn sb-item" data-view="view-charts" aria-label="Gráficos">
+          <span class="sb-ico"><img src="graficos.png" class="nav-icon" alt=""></span>
+          <span class="sb-txt">Gráficos</span>
+        </button>
+
+        <button class="nav-btn sb-item" data-view="view-calendar" aria-label="Calendario">
+          <span class="sb-ico"><img src="calendario.png" class="nav-icon" alt=""></span>
+          <span class="sb-txt">Calendario</span>
+        </button>
       </div>
 
-      <div class="stat-row">
-        <span class="stat-label">
-          <span class="dot dot-inside"></span>
-          Dentro
-        </span>
-        <span class="v-instore">0</span>
+      <div class="sb-foot">
+        <small>© SmartCountify</small>
       </div>
+    </aside>
 
+    <section class="content">
+
+      <section class="client-selector" id="clientSelectorSection" style="display: none;">
+        <h2>Seleccionar cliente</h2>
+        <label>
+          Cliente:
+          <select id="clientSelect"></select>
+        </label>
+      </section>
+
+      <section class="store-selector" id="storeSelectorSection">
+        <h2>Seleccionar tienda</h2>
+        <label>
+          Tienda:
+          <select id="storeSelect"></select>
+        </label>
+      </section>
+
+      <!-- VISTA 1: TIENDA -->
+      <section id="view-store" class="view active-view">
+        <section class="toolbar">
+          <button id="refreshBtn">Actualizar ahora</button>
+          <button id="forceRefreshBtn" type="button">🔄 Confirmar / Actualizar️</button>
+          <span id="refreshToast" class="refresh-toast"></span>
+
+          <button id="resetStoreBtn" type="button" class="reset-btn" style="display:none;">
+            🧹 Reset tienda (Admin)
+          </button>
+
+          <label>
+            Auto-actualizar cada
+            <select id="refreshInterval">
+              <option value="0">No auto</option>
+              <option value="5000">5 s</option>
+              <option value="10000" selected>10 s</option>
+              <option value="30000">30 s</option>
+            </select>
+          </label>
+
+          <button id="exportNowBtn">Exportar Excel (ahora)</button>
+
+          <label>
+            Exportar día:
+            <span class="date-field">
+              <span class="date-input-wrap">
+                <span class="date-icon">📅</span>
+                <input id="exportDate" class="date-input" type="text" placeholder="dd/mm/yyyy" inputmode="numeric" />
+              </span>
+
+              <button type="button" class="date-today-btn" data-today-for="exportDate">Hoy</button>
+              <button type="button" class="date-clear-btn" data-clear-for="exportDate">Limpiar</button>
+            </span>
+          </label>
+
+          <button id="exportDayBtn">Exportar Excel (día)</button>
+        </section>
+
+        <section id="sensorsContainer"></section>
+      </section>
+
+      <!-- VISTA 2: GRÁFICOS -->
+      <section id="view-charts" class="view">
+        <h2>Gráficos</h2>
+
+        <section class="donut-section">
+          <div class="donut-head">
+            <h3 style="margin:0;">Distribución de eventos (tienda actual)</h3>
+            <button id="pinDonutBtn" type="button">📌 Fijar info (OFF)</button>
+          </div>
+
+          <div class="donut-row">
+            <div class="donut-wrap">
+              <canvas id="donutCanvas" width="520" height="320"></canvas>
+            </div>
+
+            <div id="donutPinnedPanel" class="donut-pinned" style="display:none;"></div>
+          </div>
+        </section>
+
+        <hr style="opacity:.25; margin: 18px 0;" />
+
+        <h2>Gráfico por día / rango</h2>
+
+        <div class="tool-row">
+          <label>
+            Fecha (o rango):
+            <span class="date-field">
+              <span class="date-input-wrap">
+                <span class="date-icon">📅</span>
+                <input id="chartDate" class="date-input" type="text" placeholder="dd/mm/yyyy o rango" inputmode="numeric" />
+              </span>
+
+              <button type="button" class="date-today-btn" data-today-for="chartDate">Hoy</button>
+              <button type="button" class="date-clear-btn" data-clear-for="chartDate">Limpiar</button>
+            </span>
+          </label>
+
+          <button id="loadChartBtn">Cargar gráfico</button>
+        </div>
+
+        <div id="inlineWrapChart" class="inline-wrap" aria-label="Calendario inline (Gráfico)"></div>
+
+        <div class="chart-wrap">
+          <canvas id="chartCanvas"></canvas>
+        </div>
+      </section>
+
+      <!-- VISTA 3: RESUMEN -->
+      <section id="view-calendar" class="view">
+        <h2>Resumen por día</h2>
+        <p class="view-desc">
+          Selecciona un día para ver el resumen (entradas, salidas, dentro).
+        </p>
+
+        <div class="tool-row">
+          <label>
+            Día:
+            <span class="date-field">
+              <span class="date-input-wrap">
+                <span class="date-icon">📅</span>
+                <input id="historyDate" class="date-input" type="text" placeholder="dd/mm/yyyy" inputmode="numeric" />
+              </span>
+
+              <button type="button" class="date-today-btn" data-today-for="historyDate">Hoy</button>
+              <button type="button" class="date-clear-btn" data-clear-for="historyDate">Limpiar</button>
+            </span>
+          </label>
+
+          <button id="loadHistoryBtn">Ver resumen</button>
+        </div>
+
+        <div id="inlineWrapHistory" class="inline-wrap" aria-label="Calendario inline (Resumen)"></div>
+
+        <section id="historyResult" class="history-box">
+          <p>Selecciona una fecha para ver el resumen del día.</p>
+        </section>
+      </section>
+
+    </section>
+
+    <!-- MODAL -->
+    <section id="sessionWarningModal" class="modal-overlay" style="display: none;">
+      <div class="modal-box">
+        <h2>Sesión inactiva</h2>
+        <p>
+          No se ha detectado actividad. Serás desconectado en
+          <strong><span id="countdownSeconds">60</span> segundos</strong>.
+        </p>
+        <div class="modal-actions">
+          <button id="stayLoggedBtn">Seguir conectado</button>
+          <button id="logoutNowBtn" class="logout-btn">Cerrar sesión ahora</button>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <footer>
+    <small>SmartCountify Sistema Contador de Personas Creado por Riocom-2026</small>
+  </footer>
+
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+  <script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/es.js"></script>
+
+  <script src="app.js"></script>
+</body>
+</html>
+
+
+* { box-sizing: border-box; }
+
+:root{
+  --header-offset: 160px;
+  --gap-under-header: 30px;
+  --sidebar-width: 0px; /* ✅ antes 64px: ahora NO empuja el contenido */
+}
+
+body {
+  margin: 0;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  background: #c2bcd3;
+  color: #0A2342;
+}
+
+/* ---------------- HEADER ---------------- */
+/* ✅ Sticky + layout left/right */
+header.header-bar{
+  position: sticky;
+  top: 0;
+  z-index: 1000;
+
+  background: linear-gradient(90deg, #0A2342, #1C6DD0);
+  color: white;
+  padding: 18px 22px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  border-bottom: 3px solid #4DA9FF;
+}
+
+.header-left{
+  display:flex;
+  align-items:center;
+  gap: 12px;
+  min-width: 0;
+}
+
+header h1 { margin: 0; font-size: 1.4rem; }
+header p { margin: 4px 0 0; opacity: 0.95; }
+.header-text { display: flex; flex-direction: column; min-width: 0; }
+
+.logo {
+  height: 70px;
+  margin-right: 12px;
+  object-fit: contain;
+}
+
+/* ---------------- LOGIN PANEL ---------------- */
+.login-panel {
+  min-height: 75vh;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+}
+
+.login-panel h2 {
+  margin-top: 0;
+  margin-bottom: 16px;
+  text-align: center;
+  font-size: 1.6rem;
+}
+
+.login-card {
+  background: #d7dde5;
+  width: 350px;
+  padding: 30px 25px;
+  border-radius: 15px;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
+  border-left: 6px solid #1C6DD0;
+
+  opacity: 0;
+  transform: translateY(20px);
+  animation: loginFadeInUp 0.7s ease-out forwards;
+}
+
+.login_avatar {
+  width: 26px;
+  height: 26px;
+  object-fit: contain;
+  display:inline-block;
+}
+
+.login-title{
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:10px;
+}
+
+/* ✅ LOGIN: alineación perfecta icono + input (arregla lo disparejo) */
+.login-card .input-group{
+  display: grid;
+  grid-template-columns: 48px 1fr;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 14px;
+}
+
+/* icono PNG */
+.login-card .input-icon-img{
+  width:22px;
+  height:22px;
+  object-fit:contain;
+  display:block;
+  margin: 0 auto;
+}
+
+/* inputs idénticos SIEMPRE */
+.login-card .input-group input{
+  width: 100%;
+  height: 46px;
+  line-height: 46px;
+  padding: 0 16px;
+  border-radius: 12px;
+  border: 1px solid #cfd8e3;
+  font-size: 16px;
+  outline:none;
+  background: #eef5ff;
+  color: #0A2342;
+  margin-left: 0;
+}
+
+.login-card .input-group input::placeholder { color: #777; }
+
+.login-card .input-group input:focus{
+  border-color: #1C6DD0;
+  box-shadow: 0 0 0 3px rgba(28,109,208,.15);
+  background: #ffffff;
+}
+
+.login-card button { width: 100%; margin-top: 8px; }
+.login-status { margin-top: 8px; font-size: 0.9rem; }
+
+@keyframes loginFadeInUp {
+  0% { opacity: 0; transform: translateY(20px) scale(0.98); }
+  60% { opacity: 1; transform: translateY(-3px) scale(1.01); }
+  100% { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* ---------------- APP LAYOUT ---------------- */
+.app-shell{
+  position: relative;
+  padding: 16px 18px 40px;
+  padding-left: calc(var(--sidebar-width) + 24px);
+}
+
+/* ---------------- USER BADGE ---------------- */
+/* ✅ Ya NO es fixed. Vive dentro del header. */
+.user-badge{
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+
+  background: rgba(255,255,255,0.18);
+  border-radius: 12px;
+  padding: 8px 10px;
+  box-shadow: none;
+  color: white;
+  border-left: 0;
+}
+
+.user-avatar {
+  width: 22px;
+  height: 22px;
+  object-fit: contain;
+}
+
+.user-badge #userInfo{
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+  max-width: 280px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* =========================================================
+   ✅ NUEVO SIDEBAR OVERLAY (MODERNO)
+========================================================= */
+
+/* Botón flotante */
+.sb-toggle{
+  position: fixed;
+  top: 96px;           /* debajo del header */
+  left: 18px;
+  z-index: 1102;
+  width: 48px;
+  height: 48px;
+  border-radius: 14px;
+  border: 1px solid rgba(0,0,0,0.10);
+  background: rgba(255,255,255,0.85);
+  backdrop-filter: blur(10px);
+  cursor: pointer;
+  font-size: 20px;
+  font-weight: 900;
+}
+
+/* Overlay */
+.sb-overlay{
+  position: fixed;
+  inset: 0;
+  z-index: 1100;
+  background: rgba(0,0,0,0.35);
+  backdrop-filter: blur(3px);
+}
+
+/* Sidebar overlay */
+.sidebar{
+  position: fixed;
+  top: 0;
+  left: 0;
+  height: 100vh;
+  width: 320px;
+  z-index: 1101;
+
+  background: rgba(10,35,66,0.92);
+  color: #fff;
+  border-right: 1px solid rgba(255,255,255,0.12);
+  transform: translateX(-110%);
+  transition: transform 220ms ease;
+
+  display: flex;
+  flex-direction: column;
+  padding: 12px 12px 14px;
+}
+
+.sidebar.is-open{
+  transform: translateX(0);
+}
+
+.sb-head{
+  display:flex;
+  align-items:center;
+  justify-content: space-between;
+  padding: 10px 10px 14px;
+  border-bottom: 1px solid rgba(255,255,255,0.12);
+}
+
+.sb-brand{
+  display:flex;
+  align-items:center;
+  gap: 10px;
+}
+
+.sb-logo{
+  width: 44px;
+  height: 44px;
+  border-radius: 14px;
+  display:grid;
+  place-items:center;
+  background: rgba(77,169,255,0.18);
+  border: 1px solid rgba(77,169,255,0.28);
+  font-weight: 950;
+}
+
+.sb-name{ font-weight: 950; line-height: 1.05; }
+.sb-sub{ opacity: .75; font-weight: 700; font-size: 12px; margin-top: 2px; }
+
+.sb-close{
+  background: transparent;
+  border: 1px solid rgba(255,255,255,0.18);
+  color: #fff;
+  border-radius: 12px;
+  width: 38px;
+  height: 38px;
+  cursor: pointer;
+  font-weight: 900;
+}
+
+/* Menú items */
+.sb-nav{
+  padding: 12px 6px;
+  display: grid;
+  gap: 10px;
+}
+
+.sb-item{
+  width: 100%;
+  display:flex;
+  align-items:center;
+  gap: 12px;
+  border-radius: 14px;
+  padding: 12px 12px;
+  border: 1px solid transparent;
+
+  background: rgba(255,255,255,0.06);
+  color: #fff;
+  cursor: pointer;
+  transition: 0.16s;
+}
+
+.sb-item:hover{
+  background: rgba(255,255,255,0.10);
+  border-color: rgba(255,255,255,0.10);
+  transform: translateX(2px);
+}
+
+/* Tu .nav-btn.active sigue funcionando */
+.nav-btn.active{
+  background: rgba(77,169,255,0.22);
+  border-color: rgba(77,169,255,0.25);
+  color: #fff;
+  box-shadow: 0 10px 24px rgba(0,0,0,0.25);
+}
+
+.sb-ico{
+  width: 26px;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+}
+
+.sb-txt{
+  font-weight: 900;
+  letter-spacing: .2px;
+}
+
+.sb-foot{
+  margin-top: auto;
+  padding: 10px 10px 0;
+  border-top: 1px solid rgba(255,255,255,0.12);
+  opacity: .75;
+  font-weight: 700;
+}
+
+/* Reutilizas iconos */
+.nav-icon {
+  width: 22px;
+  height: 22px;
+  object-fit: contain;
+  display: block;
+  pointer-events: none
+}
+
+.content { min-width: 0; }
+
+/* ---------------- SELECTORES ---------------- */
+.client-selector,
+.store-selector {
+  background: #dfe3eb;
+  padding: 12px 16px;
+  border-radius: 10px;
+  border-left: 5px solid #1C6DD0;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+  margin-bottom: 12px;
+}
+
+.client-selector h2,
+.store-selector h2 {
+  margin: 0 0 8px;
+  font-size: 1.05rem;
+}
+
+select, input[type="date"], input[type="text"] {
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 2px solid rgba(28, 109, 208, 0.35);
+  background: white;
+  color: #0A2342;
+  outline: none;
+}
+
+label {
+  display: inline-flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+/* ---------------- BOTONES ---------------- */
+button:not(.nav-btn) {
+  padding: 10px 18px;
+  border-radius: 8px;
+  border: none;
+  cursor: pointer;
+  font-weight: 800;
+  background: #1C6DD0;
+  color: white;
+  box-shadow: 0 4px 10px rgba(28, 109, 208, 0.4);
+  transition: 0.2s;
+}
+
+button:not(.nav-btn):hover {
+  background: #4DA9FF;
+  transform: translateY(-2px);
+}
+
+.logout-btn {
+  background: #c0392b !important;
+  color: white;
+  padding: 8px 14px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: 0.2s;
+}
+
+.logout-btn:hover {
+  background: #e74c3c !important;
+  transform: translateY(-2px);
+}
+
+/* ✅ Botón reset (solo admin) */
+.reset-btn{
+  background: rgba(255,255,255,0.75) !important;
+  color: #0A2342 !important;
+  border: 1px solid rgba(0,0,0,0.12) !important;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.08) !important;
+}
+.reset-btn:hover{
+  background: rgba(255,255,255,0.9) !important;
+  transform: translateY(-2px);
+}
+
+/* ---------------- TOOLBAR ---------------- */
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+/* ---------------- VISTAS ---------------- */
+.view { display: none; }
+.view.active-view { display: block; }
+
+.view h2 { margin: 0 0 8px; }
+.view-desc { margin: 0 0 14px; opacity: 0.85; }
+
+.tool-row {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+}
+
+/* ---------------- SENSOR CARD ---------------- */
+.sensor-legend{
+  display:flex;
+  gap:14px;
+  align-items:center;
+  margin: 6px 0 10px;
+}
+
+.legend-item{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  font-weight: 700;
+}
+
+.dot{
+  width:12px;height:12px;border-radius:999px;
+  display:inline-block;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.12);
+}
+.dot-on{ background:#2ecc71; }
+.dot-off{ background:#e74c3c; }
+
+.sensor-card {
+  background: #d7dde5;
+  border-radius: 14px;
+  padding: 18px 20px;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.08);
+  border-left: 6px solid #1C6DD0;
+}
+
+.sensor-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 10px;
+}
+
+.sensor-id { font-weight: 900; font-size: 1.1rem; }
+.sensor-type { font-size: 0.85rem; color: #555; }
+
+.sensor-right-mini{
+  display:flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+}
+
+.status-pill{
+  padding: 6px 10px;
+  border-radius: 999px;
+  font-weight: 900;
+  font-size: 0.9rem;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.12);
+}
+.status-on{ background: rgba(46, 204, 113, 0.2); color: #1b7a3a; }
+.status-off{ background: rgba(231, 76, 60, 0.2); color: #8f2b22; }
+
+/* ✅ Compatibilidad con app.js actual (info-grid / info-box) */
+.info-grid{
+  display:grid;
+  grid-template-columns: repeat(3, minmax(220px, 1fr));
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.info-box{
+  background: rgba(255,255,255,0.55);
+  border: 1px solid rgba(0,0,0,0.06);
+  border-radius: 12px;
+  padding: 12px 12px;
+  box-shadow: 0 6px 16px rgba(0,0,0,0.06);
+  min-height: 86px;
+}
+
+.info-title{
+  font-weight: 900;
+  font-size: 0.9rem;
+  color:#0A2342;
+}
+
+.info-value{
+  font-size: 1.6rem;
+  font-weight: 900;
+  margin-top: 6px;
+  color:#1C6DD0;
+}
+
+.info-sub{
+  font-size: 0.78rem;
+  opacity: 0.8;
+  margin-top: 2px;
+}
+
+@media (max-width: 980px){
+  .info-grid{ grid-template-columns: 1fr; }
+}
+
+/* ---------------- DONUT + INFO FIJA ---------------- */
+.donut-section{
+  background: #dfe3eb;
+  padding: 12px 16px;
+  border-radius: 10px;
+  border-left: 5px solid #1C6DD0;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+  margin-bottom: 12px;
+}
+
+.donut-head{
+  display:flex;
+  align-items:center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+
+.donut-row{
+  display:flex;
+  gap: 14px;
+  align-items: stretch;
+  flex-wrap: wrap;
+}
+
+.donut-wrap{
+  flex: 1 1 520px;
+  min-height: 320px;
+  background: rgba(255,255,255,0.35);
+  border-radius: 12px;
+  padding: 10px;
+}
+
+.donut-pinned{
+  flex: 0 0 340px;
+  align-self: flex-start;
+  background: rgba(0,0,0,0.85);
+  color: #fff;
+  border-radius: 10px;
+  padding: 12px 12px;
+  box-shadow: 0 10px 24px rgba(0,0,0,0.25);
+  border: 1px solid rgba(255,255,255,0.12);
+}
+
+.donut-pinned-title{
+  font-weight: 900;
+  margin-bottom: 10px;
+}
+
+.donut-pinned-row{
+  display:flex;
+  align-items:center;
+  gap: 10px;
+  padding: 6px 0;
+}
+
+.donut-pinned-swatch{
+  width: 14px;
+  height: 14px;
+  border-radius: 3px;
+  box-shadow: 0 0 0 2px rgba(255,255,255,0.12);
+  flex: 0 0 14px;
+}
+
+.donut-pinned-label{
+  flex: 1 1 auto;
+  opacity: 0.95;
+}
+
+.donut-pinned-value{
+  font-weight: 900;
+  min-width: 38px;
+  text-align: right;
+}
+
+.donut-pinned-sub{
+  margin-top: 10px;
+  font-size: 0.82rem;
+  opacity: 0.8;
+}
+
+@media (max-width: 980px){
+  .donut-pinned{ flex: 1 1 320px; }
+}
+
+/* ---------------- DATE FIELD (inputs + Hoy/Limpiar) ---------------- */
+.date-field{
+  display:inline-flex;
+  align-items:center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.date-input-wrap{
+  display:inline-flex;
+  align-items:center;
+  gap: 8px;
+  padding: 6px 10px;
+  border-radius: 10px;
+  background: rgba(255,255,255,0.75);
+  border: 1px solid rgba(0,0,0,0.10);
+}
+
+.date-icon{ opacity: 0.85; }
+
+.date-input{
+  border: none !important;
+  outline: none !important;
+  padding: 6px 0 !important;
+  background: transparent !important;
+  min-width: 150px;
+}
+
+.date-today-btn, .date-clear-btn{
+  padding: 8px 12px !important;
+}
+
+/* ---------------- FOOTER ---------------- */
+footer {
+  text-align: center;
+  padding: 12px 0 16px;
+  font-size: 0.85rem;
+  color: #0A2342;
+  opacity: 0.8;
+}
+
+/* ---------------- MODAL ---------------- */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 999;
+}
+
+.modal-box {
+  background: #d7dde5;
+  padding: 24px 28px;
+  border-radius: 14px;
+  box-shadow: 0 8px 26px rgba(0, 0, 0, 0.25);
+  max-width: 420px;
+  width: 90%;
+  text-align: center;
+  border-left: 6px solid #1C6DD0;
+}
+
+/* ---------------- RESPONSIVE ---------------- */
+@media (max-width: 980px){
+  .info-grid{ grid-template-columns: 1fr; }
+}
+
+@media (max-width: 420px){
+  header.header-bar { padding: 14px 14px; }
+  .logo { height: 54px; }
+  header h1 { font-size: 1.05rem; }
+  .login-card { width: 92%; }
+
+  .user-badge #userInfo{ max-width: 180px; }
+}
+
+/* CONTENEDOR DEL GRÁFICO */
+.chart-wrap{
+  background: rgba(255,255,255,0.35);
+  padding: 12px;
+  border-radius: 12px;
+  margin-top: 12px;
+
+  height: 360px;
+  overflow: hidden;
+}
+
+/* CANVAS */
+#chartCanvas{
+  display: block;
+  width: 100% !important;
+  height: 100% !important;
+}
+
+.kpi_row{
+  display:flex;
+  gap:14px;
+  flex-wrap:wrap;
+  align-items:stretch;
+  margin-top: 10px;
+}
+
+.kpi-card{
+  flex: 1 1 180px;
+  max-width: 260px;
+  background: rgba(255,255,255,0.55);
+  border: 1px solid rgba(0,0,0,0.06);
+  border-radius: 12px;
+  padding: 12px 14px;
+  box-shadow: 0 6px 16px;
+}
+
+/* ✅ Ajuste: como header es sticky, esta variable no es tan necesaria,
+   pero la dejamos por compatibilidad. */
+@media (max-width: 900px){
+  :root{ --header-offset: 130px; }
+}
+
+
+// ==============================
+// app.js
+// - Login + admin/dueño + vistas
+// - Polling de estado
+// - Cuadros (cards) de información
+// - Export Excel (.xlsx) (ahora / día)
+// - Donut (Chart.js) + toggle ON/OFF para panel fijo estilo tooltip negro
+// - ✅ dd/mm/yyyy + conversión a ISO
+// - ✅ Flatpickr pro
+// - ✅ Botones "Hoy" / "Limpiar" global
+// - ✅ NUEVO (Opción C): Dashboard profesional Día/Rango (solo Entradas/Salidas + Totales)
+// - ✅ NUEVO: Botón "Confirmar / Actualizar" + Toast + watcher de cambio de día
+// - ✅ FIX: Reset tienda (Admin) queda FUERA de forceRefreshAll + refresca UI completo
+// ==============================
+
+const BASE_URL = window.location.origin;
+
+const LOGIN_URL = `${BASE_URL}/api/login`;
+const COUNTERS_URL = `${BASE_URL}/api/store/counters`;
+const HISTORY_URL = `${BASE_URL}/api/store/history`;
+const STATUS_URL = `${BASE_URL}/api/store/status`;
+const EXPORT_URL = `${BASE_URL}/api/store/export.xlsx`;
+
+// ------------------------------
+// ✅ Fechas dd/mm/yyyy
+// ------------------------------
+function formatDateTimeDDMMYYYY(date = new Date()) {
+  return date.toLocaleString("es-CL", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false,
+  });
+}
+
+function formatDDMMYYYYFromISO(isoYYYYMMDD) {
+  if (!isoYYYYMMDD) return "";
+  const [y, m, d] = String(isoYYYYMMDD).split("-");
+  if (!y || !m || !d) return "";
+  return `${String(d).padStart(2, "0")}/${String(m).padStart(2, "0")}/${y}`;
+}
+
+function isValidDDMMYYYY(dateStr) {
+  return /^\d{2}\/\d{2}\/\d{4}$/.test(String(dateStr || "").trim());
+}
+
+function convertDDMMYYYYtoISO(dateStr) {
+  const s = String(dateStr || "").trim();
+  if (!isValidDDMMYYYY(s)) return null;
+
+  const [dd, mm, yyyy] = s.split("/");
+  return `${yyyy}-${mm}-${dd}`;
+}
+
+function autoFormatDateInput(input) {
+  if (!input) return;
+
+  input.addEventListener("input", () => {
+    let value = input.value.replace(/\D/g, "");
+    if (value.length > 8) value = value.slice(0, 8);
+
+    if (value.length >= 5) {
+      input.value = `${value.slice(0, 2)}/${value.slice(2, 4)}/${value.slice(4)}`;
+    } else if (value.length >= 3) {
+      input.value = `${value.slice(0, 2)}/${value.slice(2)}`;
+    } else {
+      input.value = value;
+    }
+  });
+}
+
+function todayDDMMYYYY() {
+  const today = new Date();
+  const dd = String(today.getDate()).padStart(2, "0");
+  const mm = String(today.getMonth() + 1).padStart(2, "0");
+  const yyyy = String(today.getFullYear());
+  return `${dd}/${mm}/${yyyy}`;
+}
+
+// ------------------------------
+// ✅ Botones Hoy / Limpiar: listener global
+// ------------------------------
+function setupGlobalDateButtons() {
+  document.addEventListener(
+    "click",
+    (e) => {
+      const todayBtn = e.target.closest("[data-today-for]");
+      const clearBtn = e.target.closest("[data-clear-for]");
+
+      if (!todayBtn && !clearBtn) return;
+
+      e.preventDefault();
+      e.stopPropagation();
+
+      if (todayBtn) {
+        const id = todayBtn.getAttribute("data-today-for");
+        const input = document.getElementById(id);
+        if (!input) return;
+
+        const today = new Date();
+        const dd = String(today.getDate()).padStart(2, "0");
+        const mm = String(today.getMonth() + 1).padStart(2, "0");
+        const yyyy = String(today.getFullYear());
+        const ddmm = `${dd}/${mm}/${yyyy}`;
+
+        input.value = ddmm;
+
+        if (input._flatpickr) {
+          const fp = input._flatpickr;
+          if (fp.config.mode === "range") fp.setDate([today, today], true);
+          else fp.setDate(today, true);
+          fp.close();
+        }
+
+        if (id === "chartDate") loadChart();
+        if (id === "historyDate") loadHistory();
+      }
+
+      if (clearBtn) {
+        const id = clearBtn.getAttribute("data-clear-for");
+        const input = document.getElementById(id);
+        if (!input) return;
+
+        input.value = "";
+        if (input._flatpickr) input._flatpickr.clear();
+      }
+    },
+    true
+  );
+}
+
+// ------------------------------
+// ✅ Flatpickr
+// ------------------------------
+let flatpickrReady = false;
+
+function initFlatpickr() {
+  if (!window.flatpickr) return false;
+  if (flatpickrReady) return true;
+
+  const common = {
+    dateFormat: "d/m/Y",
+    allowInput: true,
+    clickOpens: true,
+    locale: "es",
+  };
+
+  if (exportDateInput) {
+    window.flatpickr(exportDateInput, {
+      ...common,
+      mode: "single",
+      defaultDate: exportDateInput.value || todayDDMMYYYY(),
+    });
+  }
+
+  if (chartDateInput) {
+    window.flatpickr(chartDateInput, {
+      ...common,
+      mode: "range",
+      rangeSeparator: " a ",
+      defaultDate: chartDateInput.value || todayDDMMYYYY(),
+    });
+  }
+
+  if (historyDateInput) {
+    window.flatpickr(historyDateInput, {
+      ...common,
+      mode: "single",
+      defaultDate: historyDateInput.value || todayDDMMYYYY(),
+    });
+  }
+
+  flatpickrReady = true;
+  return true;
+}
+
+// ------------------------------
+// Elementos principales
+// ------------------------------
+const sensorsContainer = document.getElementById("sensorsContainer");
+const refreshBtn = document.getElementById("refreshBtn");
+const refreshSelect = document.getElementById("refreshInterval");
+const resetStoreBtn = document.getElementById("resetStoreBtn");
+
+// ✅ botón confirmar/actualizar + toast
+const forceRefreshBtn = document.getElementById("forceRefreshBtn");
+const refreshToast = document.getElementById("refreshToast");
+
+// Login
+const loginPanel = document.getElementById("loginPanel");
+const mainContent = document.getElementById("mainContent");
+const usernameInput = document.getElementById("usernameInput");
+
+// ✅ robusto: si no hay id="passwordInput"
+const passwordInput =
+  document.getElementById("passwordInput") ||
+  document.querySelector('#loginPanel input[type="password"]');
+
+const loginBtn = document.getElementById("loginBtn");
+const loginStatus = document.getElementById("loginStatus");
+
+// User badge
+const userBadge = document.getElementById("userBadge");
+const userInfo = document.getElementById("userInfo");
+const logoutBtn = document.getElementById("logoutBtn");
+
+// Selector de cliente (solo admin)
+const clientSelectorSection = document.getElementById("clientSelectorSection");
+const clientSelect = document.getElementById("clientSelect");
+
+// Selector de tienda
+const storeSelect = document.getElementById("storeSelect");
+
+// Modal de inactividad
+const sessionWarningModal = document.getElementById("sessionWarningModal");
+const stayLoggedBtn = document.getElementById("stayLoggedBtn");
+const logoutNowBtn = document.getElementById("logoutNowBtn");
+const countdownSpan = document.getElementById("countdownSeconds");
+
+// Menú y vistas
+const navButtons = document.querySelectorAll(".nav-btn");
+const views = document.querySelectorAll(".view");
+
+// Export UI
+const exportNowBtn = document.getElementById("exportNowBtn");
+const exportDateInput = document.getElementById("exportDate");
+const exportDayBtn = document.getElementById("exportDayBtn");
+
+// Charts / history UI
+const chartDateInput = document.getElementById("chartDate");
+const historyDateInput = document.getElementById("historyDate");
+const loadChartBtn = document.getElementById("loadChartBtn");
+
+// Chart canvas (Chart.js)
+const chartCanvas = document.getElementById("chartCanvas");
+const chartCtx = chartCanvas ? chartCanvas.getContext("2d") : null;
+let proChart = null;
+
+// History
+const loadHistoryBtn = document.getElementById("loadHistoryBtn");
+const historyResult = document.getElementById("historyResult");
+
+// Donut (Chart.js)
+const donutCanvas = document.getElementById("donutCanvas");
+const pinDonutBtn = document.getElementById("pinDonutBtn");
+const donutPinnedPanel = document.getElementById("donutPinnedPanel");
+let donutChart = null;
+
+// ✅ activar listener global de botones
+setupGlobalDateButtons();
+
+// ------------------------------
+// Estado
+// ------------------------------
+let autoRefreshId = null;
+let statusPollId = null;
+const STATUS_POLL_MS = 3000;
+
+let currentUser = null;
+let currentRole = null;
+let currentStores = [];
+let currentStoreId = null;
+
+let clients = [];
+let currentClientId = null;
+
+let donutPinnedOn = false;
+let lastCountersForDonut = null;
+
+// ✅ watcher de cambio de día
+let lastUiDayKey = null;
+let dayWatchId = null;
+
+// ------------------------------
+// Utilidades: clientes/tiendas
+// ------------------------------
+function getClientIdFromStoreId(storeId) {
+  const parts = String(storeId || "").split("-");
+  return parts[0] || storeId;
+}
+
+function formatClientName(clientId) {
+  if (!clientId) return "";
+  return clientId.charAt(0).toUpperCase() + clientId.slice(1);
+}
+
+function buildClientsFromStores(stores) {
+  const found = new Set();
+  const list = [];
+  (stores || []).forEach((store) => {
+    const clientId = getClientIdFromStoreId(store.id);
+    if (!found.has(clientId)) {
+      found.add(clientId);
+      list.push({ id: clientId, name: formatClientName(clientId) });
+    }
+  });
+  return list;
+}
+
+function fillClientSelect() {
+  if (!clientSelect) return;
+  clientSelect.innerHTML = "";
+
+  clients.forEach((c) => {
+    const opt = document.createElement("option");
+    opt.value = c.id;
+    opt.textContent = c.name;
+    clientSelect.appendChild(opt);
+  });
+
+  currentClientId = clients.length ? clients[0].id : null;
+  if (currentClientId) clientSelect.value = currentClientId;
+}
+
+function fillStoreSelectForClient(clientId) {
+  if (!storeSelect) return;
+  storeSelect.innerHTML = "";
+
+  const filteredStores = currentStores.filter((s) => getClientIdFromStoreId(s.id) === clientId);
+
+  filteredStores.forEach((store) => {
+    const opt = document.createElement("option");
+    opt.value = store.id;
+    opt.textContent = store.name || store.id;
+    storeSelect.appendChild(opt);
+  });
+
+  currentStoreId = filteredStores.length ? filteredStores[0].id : null;
+  if (currentStoreId) storeSelect.value = currentStoreId;
+}
+
+function fillStoreSelectSimple() {
+  if (!storeSelect) return;
+  storeSelect.innerHTML = "";
+
+  currentStores.forEach((store) => {
+    const opt = document.createElement("option");
+    opt.value = store.id;
+    opt.textContent = store.name || store.id;
+    storeSelect.appendChild(opt);
+  });
+
+  currentStoreId = currentStores.length ? currentStores[0].id : null;
+  if (currentStoreId) storeSelect.value = currentStoreId;
+}
+
+function getStoreName(storeId) {
+  let storeName = storeId;
+  const found = (currentStores || []).find((s) => s.id === storeId);
+  if (found && found.name) storeName = found.name;
+  return storeName;
+}
+
+// ------------------------------
+// Menú lateral: cambiar vista
+// ------------------------------
+function showView(viewId) {
+  views.forEach((v) => v.classList.remove("active-view"));
+  const el = document.getElementById(viewId);
+  if (el) el.classList.add("active-view");
+
+  navButtons.forEach((b) => b.classList.remove("active"));
+  const btn = document.querySelector(`.nav-btn[data-view="${viewId}"]`);
+  if (btn) btn.classList.add("active");
+}
+
+navButtons.forEach((btn) => {
+  btn.addEventListener("click", () => {
+    const viewId = btn.dataset.view;
+    if (viewId) showView(viewId);
+  });
+});
+
+// ------------------------------
+// Inactividad
+// ------------------------------
+const INACTIVITY_LIMIT_MS = 1 * 60 * 1000;
+const WARNING_DURATION_MS = 30 * 1000;
+
+let inactivityTimer = null;
+let logoutTimer = null;
+let countdownInterval = null;
+
+function clearInactivityTimers() {
+  clearTimeout(inactivityTimer);
+  clearTimeout(logoutTimer);
+  clearInterval(countdownInterval);
+  inactivityTimer = null;
+  logoutTimer = null;
+  countdownInterval = null;
+}
+
+function hideInactivityWarning() {
+  if (sessionWarningModal) sessionWarningModal.style.display = "none";
+  clearInterval(countdownInterval);
+  countdownInterval = null;
+}
+
+function showInactivityWarning() {
+  if (!currentUser) return;
+  if (!sessionWarningModal) return;
+
+  sessionWarningModal.style.display = "flex";
+
+  let remaining = Math.floor(WARNING_DURATION_MS / 1000);
+  if (countdownSpan) countdownSpan.textContent = remaining;
+
+  clearInterval(countdownInterval);
+  countdownInterval = setInterval(() => {
+    remaining -= 1;
+    if (remaining < 0) remaining = 0;
+    if (countdownSpan) countdownSpan.textContent = remaining;
+  }, 1000);
+
+  logoutTimer = setTimeout(() => logout(), WARNING_DURATION_MS);
+}
+
+function resetInactivityTimers() {
+  if (!currentUser) return;
+  hideInactivityWarning();
+  clearInactivityTimers();
+  inactivityTimer = setTimeout(showInactivityWarning, INACTIVITY_LIMIT_MS);
+}
+
+["click", "keydown", "mousemove", "scroll", "touchstart"].forEach((evt) => {
+  document.addEventListener(evt, () => resetInactivityTimers(), { passive: true });
+});
+
+if (stayLoggedBtn) stayLoggedBtn.addEventListener("click", () => resetInactivityTimers());
+if (logoutNowBtn) logoutNowBtn.addEventListener("click", () => logout());
+
+// ------------------------------
+// Polling estado
+// ------------------------------
+function startStatusPolling() {
+  stopStatusPolling();
+  statusPollId = setInterval(() => refreshStatusOnly(), STATUS_POLL_MS);
+}
+
+function stopStatusPolling() {
+  if (statusPollId) {
+    clearInterval(statusPollId);
+    statusPollId = null;
+  }
+}
+
+async function refreshStatusOnly() {
+  if (!currentStoreId) return;
+
+  const statusPill = document.getElementById("statusPill");
+  const snEl = document.getElementById("sensorSn");
+  if (!statusPill || !snEl) return;
+
+  try {
+    const urlStatus = `${STATUS_URL}?storeId=${encodeURIComponent(currentStoreId)}`;
+    const res = await fetch(urlStatus);
+    if (!res.ok) return;
+
+    const status = await res.json();
+    const online = !!status?.online;
+    const sn = status?.sn || "SN desconocido";
+
+    snEl.innerHTML = `SN: <strong>${sn}</strong>`;
+
+    statusPill.classList.remove("status-on", "status-off");
+    statusPill.classList.add(online ? "status-on" : "status-off");
+    statusPill.textContent = online ? "🟢 Encendido" : "🔴 Apagado";
+  } catch {
+    // no rompemos UI
+  }
+}
+
+// ------------------------------
+// ✅ Toast + refresh total + watcher día
+// ------------------------------
+function showRefreshToast(msg) {
+  if (!refreshToast) return;
+  refreshToast.textContent = msg;
+  refreshToast.style.color = "#0A2342";
+  refreshToast.style.marginLeft = "10px";
+
+  setTimeout(() => {
+    if (refreshToast.textContent === msg) refreshToast.textContent = "";
+  }, 3500);
+}
+
+function getLocalDayKey() {
+  const d = new Date();
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
+async function forceRefreshAll() {
+  if (!currentStoreId) {
+    showRefreshToast("Selecciona una tienda.");
+    return;
+  }
+
+  await loadSensors();
+  await refreshStatusOnly();
+
+  const hText = (historyDateInput?.value || "").trim();
+  if (hText) {
+    try { await loadHistory(); } catch {}
+  }
+
+  const cText = (chartDateInput?.value || "").trim();
+  if (cText) {
+    try { await loadChart(); } catch {}
+  }
+
+  showRefreshToast(`Actualizado ✅ ${formatDateTimeDDMMYYYY(new Date())}`);
+}
+
+function startDayWatcher() {
+  if (dayWatchId) return;
+  lastUiDayKey = getLocalDayKey();
+
+  dayWatchId = setInterval(() => {
+    if (!currentUser || !currentStoreId) return;
+
+    const nowKey = getLocalDayKey();
+    if (nowKey !== lastUiDayKey) {
+      lastUiDayKey = nowKey;
+      forceRefreshAll();
+    }
+  }, 30_000);
+
+  dayWatchId.unref?.();
+}
+
+function stopDayWatcher() {
+  if (dayWatchId) {
+    clearInterval(dayWatchId);
+    dayWatchId = null;
+  }
+  lastUiDayKey = null;
+}
+
+if (forceRefreshBtn) forceRefreshBtn.addEventListener("click", forceRefreshAll);
+
+// ------------------------------
+// ✅ RESET TIENDA (ADMIN)
+// ------------------------------
+async function resetCurrentStoreAdmin() {
+  if (!currentStoreId) {
+    showRefreshToast("Selecciona una tienda primero.");
+    return;
+  }
+
+  const storeName = getStoreName(currentStoreId);
+  const ok = confirm(
+    `⚠️ Vas a RESETEAR a 0 la tienda:\n\n${storeName} (${currentStoreId})\n\n¿Continuar?`
+  );
+  if (!ok) return;
+
+  try {
+    const res = await fetch(`${BASE_URL}/api/admin/reset-store`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ storeId: currentStoreId }),
+    });
+
+    if (!res.ok) {
+      let msg = "";
+      try {
+        const j = await res.json();
+        msg = j?.error || j?.msg || "";
+      } catch {
+        msg = await res.text().catch(() => "");
+      }
+      throw new Error(msg || `Error ${res.status}`);
+    }
+
+    const data = await res.json();
+    showRefreshToast(data?.msg || "Tienda reseteada ✅");
+    await forceRefreshAll();
+  } catch (e) {
+    console.error(e);
+    alert(`No se pudo resetear: ${e.message || e}`);
+  }
+}
+
+if (resetStoreBtn) {
+  resetStoreBtn.addEventListener("click", resetCurrentStoreAdmin);
+}
+
+// ------------------------------
+// Login
+// ------------------------------
+async function login() {
+  const username = (usernameInput?.value || "").trim();
+  const password = (passwordInput?.value || "").trim();
+
+  if (!username || !password) {
+    loginStatus.textContent = "Ingresa usuario y contraseña.";
+    loginStatus.style.color = "red";
+    return;
+  }
+
+  try {
+    loginStatus.textContent = "Ingresando...";
+    loginStatus.style.color = "inherit";
+
+    const res = await fetch(LOGIN_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ username, password }),
+    });
+
+    if (!res.ok) {
+      if (res.status === 401) throw new Error("Usuario o contraseña incorrectos.");
+      throw new Error("Error en el login.");
+    }
+
+    const data = await res.json();
+
+    currentUser = data.username;
+    currentRole = data.role || "dueño";
+    currentStores = data.stores || [];
+
+    if (currentStores.length === 0) {
+      loginStatus.textContent = "El usuario no tiene tiendas asignadas.";
+      loginStatus.style.color = "red";
+      return;
+    }
+
+    if (resetStoreBtn) {
+      resetStoreBtn.style.display = currentRole === "admin" ? "inline-flex" : "none";
+    }
+
+    if (userInfo) {
+      const roleMap = { admin: "Administrador", dueño: "Dueño", usuario: "Usuario" };
+      const roleLabel = roleMap[currentRole] || "Usuario";
+
+      userInfo.innerHTML = `
+        <img src="user.png" class="user-avatar" alt="Usuario">
+        <span class="user-name">${currentUser}</span>
+        <span class="user-role">(${roleLabel})</span>
+      `;
+    }
+
+    if (currentRole === "admin") {
+      clients = buildClientsFromStores(currentStores);
+      if (clients.length > 0) {
+        fillClientSelect();
+        fillStoreSelectForClient(currentClientId);
+        if (clientSelectorSection) clientSelectorSection.style.display = "block";
+      } else {
+        if (clientSelectorSection) clientSelectorSection.style.display = "none";
+        fillStoreSelectSimple();
+      }
+    } else {
+      clients = [];
+      currentClientId = null;
+      if (clientSelectorSection) clientSelectorSection.style.display = "none";
+      fillStoreSelectSimple();
+    }
+
+    loginStatus.textContent = "";
+    if (loginPanel) loginPanel.style.display = "none";
+    if (mainContent) mainContent.style.display = "block";
+    if (userBadge) userBadge.style.display = "flex";
+
+    showView("view-store");
+
+    const today = todayDDMMYYYY();
+    if (exportDateInput && !exportDateInput.value) exportDateInput.value = today;
+    if (chartDateInput && !chartDateInput.value) chartDateInput.value = today;
+    if (historyDateInput && !historyDateInput.value) historyDateInput.value = today;
+
+    initFlatpickr();
+
+    resetInactivityTimers();
+    startStatusPolling();
+    startDayWatcher();
+
+    if (currentStoreId) {
+      await loadSensors();
+      refreshStatusOnly();
+    } else {
+      sensorsContainer.innerHTML = "<p>No hay tiendas disponibles para este usuario.</p>";
+    }
+  } catch (err) {
+    console.error(err);
+    loginStatus.textContent = err.message || "No se pudo iniciar sesión.";
+    loginStatus.style.color = "red";
+  }
+}
+
+if (loginBtn) loginBtn.addEventListener("click", login);
+if (usernameInput) usernameInput.addEventListener("keydown", (e) => e.key === "Enter" && login());
+if (passwordInput) passwordInput.addEventListener("keydown", (e) => e.key === "Enter" && login());
+
+// ------------------------------
+// Logout
+// ------------------------------
+function logout() {
+  if (autoRefreshId) {
+    clearInterval(autoRefreshId);
+    autoRefreshId = null;
+  }
+  stopStatusPolling();
+
+  stopDayWatcher();
+
+  clearInactivityTimers();
+  hideInactivityWarning();
+
+  currentUser = null;
+  currentRole = null;
+  currentStores = [];
+  currentStoreId = null;
+  clients = [];
+  currentClientId = null;
+
+  if (userInfo) userInfo.textContent = "";
+  if (storeSelect) storeSelect.innerHTML = "";
+  if (clientSelect) clientSelect.innerHTML = "";
+  if (clientSelectorSection) clientSelectorSection.style.display = "none";
+  if (resetStoreBtn) resetStoreBtn.style.display = "none";
+
+  if (sensorsContainer)
+    sensorsContainer.innerHTML = "<p>Inicia sesión para ver el contador de personas.</p>";
+
+  destroyDonut();
+  hidePinnedPanel();
+  destroyProChart();
+
+  if (loginStatus) loginStatus.textContent = "";
+  if (usernameInput) usernameInput.value = "";
+  if (passwordInput) passwordInput.value = "";
+
+  if (mainContent) mainContent.style.display = "none";
+  if (loginPanel) loginPanel.style.display = "flex";
+
+  if (userBadge) userBadge.style.display = "none";
+}
+
+if (logoutBtn) logoutBtn.addEventListener("click", logout);
+
+// ------------------------------
+// Selectores
+// ------------------------------
+if (clientSelect) {
+  clientSelect.addEventListener("change", () => {
+    currentClientId = clientSelect.value;
+    fillStoreSelectForClient(currentClientId);
+
+    if (currentStoreId) {
+      loadSensors();
+      refreshStatusOnly();
+    } else {
+      sensorsContainer.innerHTML = "<p>No hay tiendas asociadas a este cliente.</p>";
+    }
+  });
+}
+
+if (storeSelect) {
+  storeSelect.addEventListener("change", () => {
+    currentStoreId = storeSelect.value;
+    loadSensors();
+    refreshStatusOnly();
+  });
+}
+
+// ------------------------------
+// CONTADOR TIENDA + ESTADO
+// ------------------------------
+async function loadSensors() {
+  if (!currentStoreId) {
+    sensorsContainer.innerHTML = "<p>Selecciona una tienda para ver los datos.</p>";
+    return;
+  }
+
+  try {
+    sensorsContainer.innerHTML = "<p>Cargando datos de la tienda...</p>";
+
+    const urlCounters = `${COUNTERS_URL}?storeId=${encodeURIComponent(currentStoreId)}`;
+    const urlStatus = `${STATUS_URL}?storeId=${encodeURIComponent(currentStoreId)}`;
+
+    const [resCounters, resStatus] = await Promise.all([fetch(urlCounters), fetch(urlStatus)]);
+
+    if (!resCounters.ok) throw new Error("Error al obtener contadores: " + resCounters.status);
+    if (!resStatus.ok) throw new Error("Error al obtener estado: " + resStatus.status);
+
+    const counters = await resCounters.json();
+    const status = await resStatus.json();
+
+    lastCountersForDonut = counters;
+
+    renderStoreCountersCards(counters, status);
+    renderDonutFromCounters(counters);
+    if (donutPinnedOn) renderPinnedPanelFromCounters(counters);
+  } catch (err) {
+    console.error(err);
+    sensorsContainer.innerHTML = `<p style="color:red;">No se pudieron cargar los datos de la tienda. Revisa el servidor.</p>`;
+  }
+}
+
+function renderStoreCountersCards(counters, status) {
+  const {
+    storeId,
+    entradas = 0,
+    salidas = 0,
+    dentro = 0,
+    inChild = 0,
+    outChild = 0,
+    workersIn = 0,
+    totalEntradas = 0,
+    totalSalidas = 0,
+  } = counters || {};
+
+  const online = !!status?.online;
+  const sn = status?.sn || "SN desconocido";
+
+  sensorsContainer.innerHTML = "";
+
+  const card = document.createElement("article");
+  card.className = "sensor-card";
+
+  const nowStr = formatDateTimeDDMMYYYY(new Date());
+  const storeName = getStoreName(storeId);
+
+  card.innerHTML = `
+  <div class="sensor-header">
+    <div>
+      <div class="sensor-id">${storeName}</div>
+      <div class="sensor-type">Contador de personas</div>
+    </div>
+
+    <div class="sensor-right">
+      <div class="sensor-sn" id="sensorSn">SN: <strong>${sn}</strong></div>
+      <div id="statusPill" class="status-pill ${online ? "status-on" : "status-off"}">
+        ${online ? "🟢 Encendido" : "🔴 Apagado"}
+      </div>
     </div>
   </div>
 
-  <div class="store-foot">
-    <span class="pill ${isEmpty ? "pill-off" : ""}">${isEmpty ? "—" : "LIVE"}</span>
-    <span class="pill v-updated">—</span>
+  <div class="info-grid">
+    ${infoBox("Clientes que han ENTRADO", entradas, "")}
+    ${infoBox("Clientes que han SALIDO", salidas, "")}
+    ${infoBox("Clientes DENTRO", dentro, "")}
+
+    ${infoBox("Niños que han ENTRADO", inChild, "")}
+    ${infoBox("Niños que han SALIDO", outChild, "")}
+    ${infoBox("Empleados", workersIn, "")}
+
+    ${infoBox("Total ENTRADAS", totalEntradas, "")}
+    ${infoBox("Total SALIDAS", totalSalidas, "")}
+    ${infoBox("Última actualización", nowStr, "Hora local", true)}
   </div>
-`;
+  `;
+
+  sensorsContainer.appendChild(card);
+}
+
+function infoBox(title, value, subtitle, isTime = false) {
+  const v = isTime ? value : Number(value || 0);
+  return `
+  <div class="info-box">
+    <div class="info-title">${title}</div>
+    <div class="info-value">${v}</div>
+    <div class="info-sub">${subtitle || ""}</div>
+  </div>
+  `;
+}
+
+// ------------------------------
+// ✅ EXPORT EXCEL (.xlsx)
+// ------------------------------
+function exportNow() {
+  if (!currentStoreId) return alert("Selecciona una tienda.");
+  const url = `${EXPORT_URL}?storeId=${encodeURIComponent(currentStoreId)}`;
+  window.open(url, "_blank");
+}
+
+function exportDay() {
+  if (!currentStoreId) return alert("Selecciona una tienda.");
+
+  const dateText = (exportDateInput?.value || "").trim();
+  if (!isValidDDMMYYYY(dateText)) return alert("Formato inválido. Usa dd/mm/yyyy");
+
+  const isoDate = convertDDMMYYYYtoISO(dateText);
+  if (!isoDate) return alert("Fecha inválida.");
+
+  const url = `${EXPORT_URL}?storeId=${encodeURIComponent(currentStoreId)}&date=${encodeURIComponent(isoDate)}`;
+  window.open(url, "_blank");
+}
+
+if (exportNowBtn) exportNowBtn.addEventListener("click", exportNow);
+if (exportDayBtn) exportDayBtn.addEventListener("click", exportDay);
+
+// ------------------------------
+// ✅ DONUT + PANEL FIJO TIPO TOOLTIP
+// ------------------------------
+const DONUT_LABELS = [
+  "Clientes (Entraron)",
+  "Clientes (Salieron)",
+  "Niños (Entraron)",
+  "Niños (Salieron)",
+  "Empleados",
+];
+
+const DONUT_COLORS = ["#36A2EB", "#FF6384", "#FFCE56", "#9966FF", "#4BC0C0"];
+
+function destroyDonut() {
+  if (donutChart) {
+    donutChart.destroy();
+    donutChart = null;
+  }
+}
+
+function renderDonutFromCounters(counters) {
+  if (!donutCanvas) return;
+  if (!window.Chart) return;
+
+  const entradas = Number(counters?.entradas || 0);
+  const salidas = Number(counters?.salidas || 0);
+  const inChild = Number(counters?.inChild || 0);
+  const outChild = Number(counters?.outChild || 0);
+  const workersIn = Number(counters?.workersIn || 0);
+
+  const data = [entradas, salidas, inChild, outChild, workersIn];
+
+  destroyDonut();
+
+  donutChart = new Chart(donutCanvas, {
+    type: "doughnut",
+    data: {
+      labels: DONUT_LABELS,
+      datasets: [{ data, backgroundColor: DONUT_COLORS, borderWidth: 1 }],
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { position: "left" },
+        title: { display: true, text: "Distribución de eventos (tienda actual)" },
+        tooltip: { enabled: !donutPinnedOn },
+      },
+    },
+  });
+}
+
+function hidePinnedPanel() {
+  if (donutPinnedPanel) donutPinnedPanel.style.display = "none";
+}
+
+function showPinnedPanel() {
+  if (donutPinnedPanel) donutPinnedPanel.style.display = "block";
+}
+
+function renderPinnedPanelFromCounters(counters) {
+  if (!donutPinnedPanel) return;
+
+  const storeName = getStoreName(counters?.storeId || currentStoreId || "");
+  const values = [
+    Number(counters?.entradas || 0),
+    Number(counters?.salidas || 0),
+    Number(counters?.inChild || 0),
+    Number(counters?.outChild || 0),
+    Number(counters?.workersIn || 0),
+  ];
+
+  donutPinnedPanel.innerHTML = `
+  <div class="donut-pinned-title">📌 ${storeName}</div>
+  ${DONUT_LABELS.map((label, i) => {
+    const v = values[i];
+    const color = DONUT_COLORS[i];
+    return `
+    <div class="donut-pinned-row">
+      <span class="donut-pinned-swatch" style="background:${color};"></span>
+      <span class="donut-pinned-label">${label}</span>
+      <span class="donut-pinned-value">${v}</span>
+    </div>
+    `;
+  }).join("")}
+  <div class="donut-pinned-sub">(OFF: vuelve el tooltip al pasar el cursor)</div>
+  `;
+
+  showPinnedPanel();
+}
+
+function setDonutPinned(on) {
+  donutPinnedOn = !!on;
+
+  if (pinDonutBtn) {
+    pinDonutBtn.textContent = donutPinnedOn ? "📌 Fijar info (ON)" : "📌 Fijar info (OFF)";
+  }
+
+  if (donutPinnedOn) {
+    if (lastCountersForDonut) renderPinnedPanelFromCounters(lastCountersForDonut);
+    else showPinnedPanel();
+  } else {
+    hidePinnedPanel();
+  }
+
+  if (lastCountersForDonut) renderDonutFromCounters(lastCountersForDonut);
+}
+
+if (pinDonutBtn) {
+  pinDonutBtn.addEventListener("click", () => {
+    setDonutPinned(!donutPinnedOn);
+  });
+}
+
+// ------------------------------
+// ✅ HISTORIAL
+// ------------------------------
+async function fetchHistory(isoYYYYMMDD) {
+  if (!currentStoreId) throw new Error("No hay tienda seleccionada.");
+  if (!isoYYYYMMDD) throw new Error("Selecciona una fecha.");
+
+  const url = `${HISTORY_URL}?storeId=${encodeURIComponent(currentStoreId)}&date=${encodeURIComponent(isoYYYYMMDD)}`;
+  const res = await fetch(url);
+  if (!res.ok) throw new Error("No se pudo obtener historial: " + res.status);
+  return res.json();
+}
+
+async function loadHistory() {
+  if (!historyResult) return;
+
+  try {
+    const dateText = (historyDateInput?.value || "").trim();
+    if (!isValidDDMMYYYY(dateText)) throw new Error("Formato inválido. Usa dd/mm/yyyy");
+
+    const isoDate = convertDDMMYYYYtoISO(dateText);
+    if (!isoDate) throw new Error("Fecha inválida.");
+
+    historyResult.innerHTML = "<p>Cargando historial...</p>";
+    const data = await fetchHistory(isoDate);
+
+    const entradas = Number(data.entradas || 0);
+    const salidas = Number(data.salidas || 0);
+    const dentro = Math.max(entradas - salidas, 0);
+
+    const storeName = getStoreName(data.storeId);
+    historyResult.innerHTML = `
+      <h3>${storeName} — ${formatDDMMYYYYFromISO(data.date)}</h3>
+      <p><strong>Entradas (clientes):</strong> ${entradas}</p>
+      <p><strong>Salidas (clientes):</strong> ${salidas}</p>
+      <p><strong>Dentro (estimado):</strong> ${dentro}</p>
+    `;
+  } catch (e) {
+    historyResult.innerHTML = `<p style="color:red;">${e.message}</p>`;
+  }
+}
+
+if (loadHistoryBtn) loadHistoryBtn.addEventListener("click", loadHistory);
+
+// ------------------------------
+// ✅ DASHBOARD PRO: Día / Rango (solo Entradas/Salidas)
+// ------------------------------
+function destroyProChart() {
+  if (proChart) {
+    proChart.destroy();
+    proChart = null;
+  }
+}
+
+function ensureChartKpiPanel() {
+  if (!chartCanvas) return null;
+
+  const wrap = chartCanvas.closest(".chart-wrap") || chartCanvas.parentElement;
+  if (!wrap) return null;
+
+  let kpi = document.getElementById("chartKpiPanel");
+  if (kpi) return kpi;
+
+  kpi = document.createElement("div");
+  kpi.id = "chartKpiPanel";
+
+  kpi.style.display = "flex";
+  kpi.style.gap = "10px";
+  kpi.style.flexWrap = "wrap";
+  kpi.style.alignItems = "stretch";
+  kpi.style.margin = "10px 0 12px";
+
+  const cardStyle = `
+    background: rgba(255,255,255,0.70);
+    border: 1px solid rgba(0,0,0,0.06);
+    border-radius: 12px;
+    padding: 10px 12px;
+    min-width: 160px;
+    box-shadow: 0 6px 16px rgba(0,0,0,0.05);
+  `;
+
+  kpi.innerHTML = `
+    <div style="${cardStyle}">
+      <div style="font-weight:900; font-size:12px; opacity:.85;">Total Entradas</div>
+      <div id="kpiEntradas" style="font-weight:900; font-size:22px; margin-top:4px;">0</div>
+    </div>
+    <div style="${cardStyle}">
+      <div style="font-weight:900; font-size:12px; opacity:.85;">Total Salidas</div>
+      <div id="kpiSalidas" style="font-weight:900; font-size:22px; margin-top:4px;">0</div>
+    </div>
+    <div style="${cardStyle}">
+      <div id="kpiThirdLabel" style="font-weight:900; font-size:12px; opacity:.85;">Neto</div>
+      <div id="kpiThirdValue" style="font-weight:900; font-size:22px; margin-top:4px;">0</div>
+    </div>
+  `;
+
+  wrap.insertBefore(kpi, chartCanvas);
+  return kpi;
+}
+
+function setKpis({ entradas = 0, salidas = 0, thirdLabel = "Neto", thirdValue = 0 }) {
+  ensureChartKpiPanel();
+  const a = document.getElementById("kpiEntradas");
+  const b = document.getElementById("kpiSalidas");
+  const l3 = document.getElementById("kpiThirdLabel");
+  const v3 = document.getElementById("kpiThirdValue");
+  if (a) a.textContent = String(entradas);
+  if (b) b.textContent = String(salidas);
+  if (l3) l3.textContent = thirdLabel;
+  if (v3) v3.textContent = String(thirdValue);
+}
+
+function parseChartDateInput(text) {
+  const s = String(text || "").trim();
+  if (!s) return { mode: null };
+
+  const parts = s.includes(" a ")
+    ? s.split(" a ").map((x) => x.trim())
+    : s.includes(" to ")
+    ? s.split(" to ").map((x) => x.trim())
+    : [s];
+
+  if (parts.length === 1) {
+    if (!isValidDDMMYYYY(parts[0])) return { mode: null };
+    return { mode: "day", from: parts[0], to: parts[0] };
+  }
+
+  if (parts.length >= 2) {
+    const from = parts[0];
+    const to = parts[1];
+    if (!isValidDDMMYYYY(from) || !isValidDDMMYYYY(to)) return { mode: null };
+    return { mode: "range", from, to };
+  }
+
+  return { mode: null };
+}
+
+function isoToDateObj(iso) {
+  const [y, m, d] = String(iso).split("-").map((n) => Number(n));
+  return new Date(y, m - 1, d);
+}
+
+function dateObjToISO(date) {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, "0");
+  const d = String(date.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+}
+
+function enumerateDaysInclusive(isoFrom, isoTo) {
+  const start = isoToDateObj(isoFrom);
+  const end = isoToDateObj(isoTo);
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return [];
+
+  const a = start <= end ? start : end;
+  const b = start <= end ? end : start;
+
+  const out = [];
+  let cur = new Date(a.getTime());
+  while (cur <= b) {
+    out.push(dateObjToISO(cur));
+    cur.setDate(cur.getDate() + 1);
+  }
+  return out;
+}
+
+function buildDayChartDatasets(byHour) {
+  const hours = Array.from({ length: 24 }, (_, i) => String(i).padStart(2, "0"));
+
+  const entradasH = [];
+  const salidasH = [];
+  const dentroLine = [];
+
+  let accE = 0;
+  let accS = 0;
+  let maxDentro = 0;
+
+  for (const hh of hours) {
+    const item = byHour?.[hh] || {};
+    const e = Number(item.entradas || 0);
+    const s = Number(item.salidas || 0);
+
+    entradasH.push(e);
+    salidasH.push(s);
+
+    accE += e;
+    accS += s;
+    const dentro = Math.max(accE - accS, 0);
+    dentroLine.push(dentro);
+    if (dentro > maxDentro) maxDentro = dentro;
+  }
+
+  return { labels: hours, entradasH, salidasH, dentroLine, totalE: accE, totalS: accS, maxDentro };
+}
+
+async function loadChart() {
+  if (!chartCanvas || !chartCtx) return;
+  if (!window.Chart) return;
+
+  try {
+    destroyProChart();
+
+    const parsed = parseChartDateInput(chartDateInput?.value || "");
+    if (!parsed.mode) throw new Error("Selecciona 1 día o un rango válido.");
+
+    const isoFrom = convertDDMMYYYYtoISO(parsed.from);
+    const isoTo = convertDDMMYYYYtoISO(parsed.to);
+    if (!isoFrom || !isoTo) throw new Error("Fecha inválida.");
+
+    const storeName = getStoreName(currentStoreId);
+
+    if (parsed.mode === "day") {
+      const data = await fetchHistory(isoFrom);
+      const pack = buildDayChartDatasets(data.byHour || {});
+
+      setKpis({
+        entradas: pack.totalE,
+        salidas: pack.totalS,
+        thirdLabel: "Máx. Dentro",
+        thirdValue: pack.maxDentro,
+      });
+
+      proChart = new Chart(chartCanvas, {
+        type: "bar",
+        data: {
+          labels: pack.labels,
+          datasets: [
+            { label: "Entradas", data: pack.entradasH, yAxisID: "y" },
+            { label: "Salidas", data: pack.salidasH, yAxisID: "y" },
+            {
+              label: "Dentro (estimado)",
+              type: "line",
+              data: pack.dentroLine,
+              yAxisID: "y1",
+              tension: 0.25,
+              pointRadius: 0,
+            },
+          ],
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          interaction: { mode: "index", intersect: false },
+          plugins: {
+            legend: { position: "bottom" },
+            title: {
+              display: true,
+              text: `${storeName} — ${formatDDMMYYYYFromISO(isoFrom)} (por hora)`,
+            },
+            tooltip: {
+              callbacks: {
+                title: (items) => `Hora: ${items?.[0]?.label}:00`,
+              },
+            },
+          },
+          scales: {
+            y: {
+              beginAtZero: true,
+              title: { display: true, text: "Entradas / Salidas (por hora)" },
+            },
+            y1: {
+              beginAtZero: true,
+              position: "right",
+              grid: { drawOnChartArea: false },
+              title: { display: true, text: "Dentro (estimado)" },
+            },
+            x: { title: { display: true, text: "Hora" } },
+          },
+        },
+      });
+
+      return;
+    }
+
+    const days = enumerateDaysInclusive(isoFrom, isoTo);
+    if (days.length === 0) throw new Error("Rango inválido.");
+
+    const results = [];
+    for (const day of days) {
+      // eslint-disable-next-line no-await-in-loop
+      const d = await fetchHistory(day);
+      results.push({
+        date: day,
+        entradas: Number(d.entradas || 0),
+        salidas: Number(d.salidas || 0),
+      });
+    }
+
+    const labels = results.map((r) => formatDDMMYYYYFromISO(r.date));
+    const entradasD = results.map((r) => r.entradas);
+    const salidasD = results.map((r) => r.salidas);
+
+    const totalE = entradasD.reduce((a, b) => a + b, 0);
+    const totalS = salidasD.reduce((a, b) => a + b, 0);
+    const neto = totalE - totalS;
+
+    setKpis({
+      entradas: totalE,
+      salidas: totalS,
+      thirdLabel: "Neto",
+      thirdValue: neto,
+    });
+
+    proChart = new Chart(chartCanvas, {
+      type: "bar",
+      data: {
+        labels,
+        datasets: [
+          { label: "Entradas (totales/día)", data: entradasD },
+          { label: "Salidas (totales/día)", data: salidasD },
+        ],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        interaction: { mode: "index", intersect: false },
+        plugins: {
+          legend: { position: "bottom" },
+          title: {
+            display: true,
+            text: `${storeName} — Rango: ${formatDDMMYYYYFromISO(isoFrom)} a ${formatDDMMYYYYFromISO(isoTo)}`,
+          },
+        },
+        scales: {
+          y: { beginAtZero: true, title: { display: true, text: "Total por día" } },
+          x: { title: { display: true, text: "Día" } },
+        },
+      },
+    });
+  } catch (e) {
+    destroyProChart();
+    setKpis({ entradas: 0, salidas: 0, thirdLabel: "Neto", thirdValue: 0 });
+
+    if (chartCtx && chartCanvas) {
+      chartCtx.clearRect(0, 0, chartCanvas.width, chartCanvas.height);
+      chartCtx.fillStyle = "#0A2342";
+      chartCtx.font = "16px system-ui";
+      chartCtx.fillText(e.message || "No se pudo cargar el gráfico.", 20, 40);
+    }
+  }
+}
+
+if (loadChartBtn) loadChartBtn.addEventListener("click", loadChart);
+
+// ------------------------------
+// Controles generales
+// ------------------------------
+if (refreshBtn) refreshBtn.addEventListener("click", () => loadSensors());
+
+if (refreshSelect) {
+  refreshSelect.addEventListener("change", () => {
+    const interval = Number(refreshSelect.value);
+
+    if (autoRefreshId) {
+      clearInterval(autoRefreshId);
+      autoRefreshId = null;
+    }
+
+    if (interval > 0) {
+      autoRefreshId = setInterval(() => loadSensors(), interval);
+    }
+  });
+}
+
+if (sensorsContainer) {
+  sensorsContainer.innerHTML = "<p>Inicia sesión para ver el contador de personas.</p>";
+}
+
+// ------------------------------
+// ✅ Activar autoformato si NO hay flatpickr
+// ------------------------------
+const hasFlatpickr = !!window.flatpickr;
+if (!hasFlatpickr) {
+  autoFormatDateInput(exportDateInput);
+  autoFormatDateInput(chartDateInput);
+  autoFormatDateInput(historyDateInput);
+} else {
+  initFlatpickr();
+}
+
+/* =========================================================
+   ✅ NUEVO: SIDEBAR OVERLAY (solo UI, no toca tu lógica)
+========================================================= */
+(() => {
+  const sidebar = document.getElementById("sidebar");
+  const overlay = document.getElementById("sbOverlay");
+  const toggle = document.getElementById("sbToggle");
+  const closeBtn = document.getElementById("sbClose");
+
+  if (!sidebar || !overlay || !toggle || !closeBtn) return;
+
+  function openSb() {
+    sidebar.classList.add("is-open");
+    overlay.hidden = false;
+    toggle.setAttribute("aria-expanded", "true");
+    sidebar.setAttribute("aria-hidden", "false");
+  }
+
+  function closeSb() {
+    sidebar.classList.remove("is-open");
+    overlay.hidden = true;
+    toggle.setAttribute("aria-expanded", "false");
+    sidebar.setAttribute("aria-hidden", "true");
+  }
+
+  toggle.addEventListener("click", () => {
+    const open = sidebar.classList.contains("is-open");
+    if (open) closeSb();
+    else openSb();
+  });
+
+  closeBtn.addEventListener("click", closeSb);
+  overlay.addEventListener("click", closeSb);
+
+  // ESC
+  window.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") closeSb();
+  });
+
+  // ✅ Cuando eliges un menú, cierra el sidebar (sin romper showView)
+  sidebar.querySelectorAll(".nav-btn[data-view]").forEach((btn) => {
+    btn.addEventListener("click", () => closeSb());
+  });
+})();
