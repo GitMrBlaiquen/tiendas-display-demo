@@ -1,34 +1,42 @@
 /* =========================================================
-   ✅ NUEVO: SIDEBAR OVERLAY (solo UI, no toca tu lógica)
+   ✅ SIDEBAR OVERLAY (UI)
+   - El botón ☰ se OCULTA solo cuando el menú está abierto
+   - Vuelve a aparecer cuando se CIERRA el menú
 ========================================================= */
 (() => {
   const sidebar = document.getElementById("sidebar");
   const overlay = document.getElementById("sbOverlay");
-  const toggle = document.getElementById("sbToggle");
-  const closeBtn = document.getElementById("sbClose");
+  const toggle  = document.getElementById("sbToggle"); // ☰
+  const closeBtn = document.getElementById("sbClose"); // X
 
   if (!sidebar || !overlay || !toggle || !closeBtn) return;
 
   function openSb() {
     sidebar.classList.add("is-open");
     overlay.hidden = false;
-    toggle.setAttribute("aria-expanded", "true");
+
     sidebar.setAttribute("aria-hidden", "false");
+    toggle.setAttribute("aria-expanded", "true");
+
+    // ✅ ocultar botón hamburguesa mientras el menú está abierto
+    toggle.style.display = "none";
   }
 
   function closeSb() {
     sidebar.classList.remove("is-open");
     overlay.hidden = true;
-    toggle.setAttribute("aria-expanded", "false");
+
     sidebar.setAttribute("aria-hidden", "true");
+    toggle.setAttribute("aria-expanded", "false");
+
+    // ✅ volver a mostrar botón hamburguesa al cerrar
+    toggle.style.display = "";
   }
 
-  toggle.addEventListener("click", () => {
-    const open = sidebar.classList.contains("is-open");
-    if (open) closeSb();
-    else openSb();
-  });
+  // Toggle (solo abre, porque al abrir se oculta)
+  toggle.addEventListener("click", openSb);
 
+  // Cerrar
   closeBtn.addEventListener("click", closeSb);
   overlay.addEventListener("click", closeSb);
 
@@ -37,39 +45,8 @@
     if (e.key === "Escape") closeSb();
   });
 
-  // ✅ Cuando eliges un menú, cierra el sidebar (sin romper showView)
+  // ✅ Cuando eliges un menú, cierra el sidebar (y vuelve el botón)
   sidebar.querySelectorAll(".nav-btn[data-view]").forEach((btn) => {
     btn.addEventListener("click", () => closeSb());
   });
 })();
-
-const sbToggle = document.getElementById("sbToggle");   // botón ☰
-const sbClose = document.getElementById("sbClose");     // botón X
-const sidebar = document.getElementById("sidebar");
-const sbOverlay = document.getElementById("sbOverlay");
-
-function openSidebar() {
-  sidebar.classList.add("is-open");
-  sbOverlay.hidden = false;
-  sidebar.setAttribute("aria-hidden", "false");
-
-  // ✅ ocultar botón hamburguesa
-  if (sbToggle) sbToggle.style.display = "none";
-}
-
-function closeSidebar() {
-  sidebar.classList.remove("is-open");
-  sbOverlay.hidden = true;
-  sidebar.setAttribute("aria-hidden", "true");
-
-  // ✅ volver a mostrar botón hamburguesa
-  if (sbToggle) sbToggle.style.display = "";
-}
-
-if (sbToggle) sbToggle.addEventListener("click", openSidebar);
-if (sbClose) sbClose.addEventListener("click", closeSidebar);
-
-// cerrar tocando el fondo
-if (sbOverlay) {
-  sbOverlay.addEventListener("click", closeSidebar);
-}
