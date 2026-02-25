@@ -1,21 +1,11 @@
-function showView(viewId) {
-  // --- tu lógica normal de vistas ---
-  views.forEach((v) => v.classList.remove("active-view"));
-  const el = document.getElementById(viewId);
-  if (el) el.classList.add("active-view");
-
-  navButtons.forEach((b) => b.classList.remove("active"));
-  const btn = document.querySelector(`.nav-btn[data-view="${viewId}"]`);
-  if (btn) btn.classList.add("active");
-
-  // --- ✅ NUEVO: ocultar selectores SOLO en Terminal ---
+  // ✅ SOLO en Terminal: ocultar selectores de cliente/tienda
   const isTerminal = viewId === "view-status-all";
 
-  // Guardar el display actual (para restaurarlo igual después)
-  if (clientSelectorSection && !clientSelectorSection.dataset.prevDisplay) {
+  // guardamos el display “normal” (para poder restaurarlo)
+  if (clientSelectorSection && clientSelectorSection.dataset.prevDisplay == null) {
     clientSelectorSection.dataset.prevDisplay = clientSelectorSection.style.display || "";
   }
-  if (storeSelectorSection && !storeSelectorSection.dataset.prevDisplay) {
+  if (storeSelectorSection && storeSelectorSection.dataset.prevDisplay == null) {
     storeSelectorSection.dataset.prevDisplay = storeSelectorSection.style.display || "";
   }
 
@@ -23,6 +13,7 @@ function showView(viewId) {
     if (clientSelectorSection) clientSelectorSection.style.display = "none";
     if (storeSelectorSection) storeSelectorSection.style.display = "none";
   } else {
+    // restaurar: el cliente solo debe mostrarse si eres admin (como ya lo haces en login)
     if (clientSelectorSection) {
       clientSelectorSection.style.display = clientSelectorSection.dataset.prevDisplay || "";
     }
@@ -30,4 +21,3 @@ function showView(viewId) {
       storeSelectorSection.style.display = storeSelectorSection.dataset.prevDisplay || "";
     }
   }
-}
