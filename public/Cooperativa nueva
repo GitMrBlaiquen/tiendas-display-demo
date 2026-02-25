@@ -1,29 +1,92 @@
-<button class="nav-btn sb-item" data-view="view-status-all" type="button">
-            <span class="sb-ico"><img src="terminal.png" class="nav-icon" alt=""></span>
-            <span class="sb-txt">Terminal</span>
-        </button>
-      </div>
+// ------------------------------
+// ✅ NUEVO: TERMINAL (todas las tiendas online/apagadas)
+// ------------------------------
+const refreshAllStatusBtn = document.getElementById("refreshAllStatusBtn");
+const statusFilter = document.getElementById("statusFilter");
+const allStatusResult = document.getElementById("allStatusResult");
 
+async function fetchStoreStatus(storeId) {
+  const url = `${STATUS_URL}?storeId=${encodeURIComponent(storeId)}`;
+  const res = await fetch(url, { cache: "no-store" });
+  if (!res.ok) throw new Error(`Status ${res.status}`);
+  return res.json();
+}
 
-<!-- VISTA 4 PROVISIORIA: TERMINAL -->
-      <section id="view-status-all" class="view">
-          <h2>Terminal (todas las tiendas)</h2>
-          <p class="view-desc">Muestra que tiendas están en línea o apagadas.</p>
-          
-          <section class="toolbar">
-              <button id="refreshAllStatusBtn" type="button">Actualizar estados</button>
-              
-              <label>
-                  Ver:
-                  <select id="statusFilter">
-                      <option value="all" selected>Todos</option>
-                      <option value="online">En línea</option>
-                      <option value="offline">Apagados</option>
-                  </select>
-              </label>
-          </section>
-          
-          <section id="allStatusResult" class="status-grid">
-              <p>"Presiona "Actualizar estados".</p>
-          </section>
-      </section>
+function renderAllStatuses(list, filterValue = "all") {
+  if (!allStatusResult) return;
+
+  const filtered = (list || []).filter((x) => {
+    if (filterValue === "online") return x.online === true;
+    if (filterValue === "offline") return x.online === false;
+    return true;
+  });
+
+  if (!filtered.length) {
+    allStatusResult.innerHTML = `<p>No hay resultados para este filtro.</p>`;
+    return;
+  }
+
+  allStatusResult.innerHTML = filtered
+    .map((x) => {
+      const storeName = getStoreName(x.storeId);
+      const on = x.online === true;
+
+      return `
+        <article class="status-card">
+          <div class="status-left">
+            <div class="status-store">${storeName}</div>
+            <div class="status-id">${x.storeId}${x.sn ? ` · SN: ${x.sn}` : ""}</div>
+          </div>
+
+          <div class="status-pill-mini ${on ? "on" : "off"}">
+            <span class="status-dot-mini ${on ? "on" : "off"}"></span>
+            ${on ? "En línea" : "Apagado"}
+          </div>
+        </article>
+      `;
+    })
+    .join("");
+}
+
+async function loadAllStatuses() {
+  if (!allStatusResult) return;
+
+  if (!currentUser) {
+    allStatusResult.innerHTML = `<p>Inicia sesión para ver Terminal.</p>`;
+    return;
+  }
+
+  if (!Array.isArray(currentStores) || !currentStores.length) {
+    allStatusResult.innerHTML = `<p>No hay tiendas para este usuario.</p>`;
+    return;
+  }
+
+  allStatusResult.innerHTML = `<p>Cargando estados...</p>`;
+
+  const tasks = currentStores.map(async (s) => {
+    try {
+      const st = await fetchStoreStatus(s.id);
+      return { storeId: s.id, online: !!st?.online, sn: st?.sn || "" };
+    } catch {
+      // si falla una tienda, la marcamos como apagada para que aparezca en "offline"
+      return { storeId: s.id, online: false, sn: "" };
+    }
+  });
+
+  const results = await Promise.all(tasks);
+  const filterValue = statusFilter?.value || "all";
+  renderAllStatuses(results, filterValue);
+}
+
+// ✅ Al entrar a la vista Terminal, carga automáticamente
+const _oldShowView = showView;
+showView = function (viewId) {
+  _oldShowView(viewId);
+  if (viewId === "view-status-all") {
+    loadAllStatuses();
+  }
+};
+
+// Listeners UI
+if (refreshAllStatusBtn) refreshAllStatusBtn.addEventListener("click", loadAllStatuses);
+if (statusFilter) statusFilter.addEventListener("change", loadAllStatuses);
