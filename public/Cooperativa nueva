@@ -1,23 +1,19 @@
-  // ✅ SOLO en Terminal: ocultar selectores de cliente/tienda
+function updateSelectorsVisibilityForView(viewId) {
   const isTerminal = viewId === "view-status-all";
 
-  // guardamos el display “normal” (para poder restaurarlo)
-  if (clientSelectorSection && clientSelectorSection.dataset.prevDisplay == null) {
-    clientSelectorSection.dataset.prevDisplay = clientSelectorSection.style.display || "";
-  }
-  if (storeSelectorSection && storeSelectorSection.dataset.prevDisplay == null) {
-    storeSelectorSection.dataset.prevDisplay = storeSelectorSection.style.display || "";
-  }
-
+  // En Terminal: ocultamos ambos
   if (isTerminal) {
     if (clientSelectorSection) clientSelectorSection.style.display = "none";
     if (storeSelectorSection) storeSelectorSection.style.display = "none";
-  } else {
-    // restaurar: el cliente solo debe mostrarse si eres admin (como ya lo haces en login)
-    if (clientSelectorSection) {
-      clientSelectorSection.style.display = clientSelectorSection.dataset.prevDisplay || "";
-    }
-    if (storeSelectorSection) {
-      storeSelectorSection.style.display = storeSelectorSection.dataset.prevDisplay || "";
-    }
+    return;
   }
+
+  // Fuera de Terminal: restauramos según tu lógica actual
+  if (clientSelectorSection) {
+    const shouldShowClient = currentRole === "admin" && (clients?.length || 0) > 0;
+    clientSelectorSection.style.display = shouldShowClient ? "block" : "none";
+  }
+
+  // La tienda siempre debe verse en las vistas normales
+  if (storeSelectorSection) storeSelectorSection.style.display = "block";
+}
