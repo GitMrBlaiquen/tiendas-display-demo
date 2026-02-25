@@ -11,6 +11,7 @@
 // - ✅ NUEVO (Opción C): Dashboard profesional Día/Rango (solo Entradas/Salidas + Totales)
 // - ✅ NUEVO: Botón "Confirmar / Actualizar" + Toast + watcher de cambio de día
 // - ✅ FIX: Reset tienda (Admin) queda FUERA de forceRefreshAll + refresca UI completo
+// - ✅ NUEVO: Vista TERMINAL (todos los sensores online/apagados)
 // ==============================
 
 const BASE_URL = window.location.origin;
@@ -249,6 +250,11 @@ const pinDonutBtn = document.getElementById("pinDonutBtn");
 const donutPinnedPanel = document.getElementById("donutPinnedPanel");
 let donutChart = null;
 
+// ✅ NUEVO: TERMINAL (todos los sensores)
+const terminalRefreshBtn = document.getElementById("terminalRefreshBtn");
+const terminalFilter = document.getElementById("terminalFilter");
+const terminalResult = document.getElementById("terminalResult");
+
 // ✅ activar listener global de botones
 setupGlobalDateButtons();
 
@@ -365,6 +371,11 @@ function showView(viewId) {
   navButtons.forEach((b) => b.classList.remove("active"));
   const btn = document.querySelector(`.nav-btn[data-view="${viewId}"]`);
   if (btn) btn.classList.add("active");
+
+  // ✅ NUEVO: al abrir TERMINAL, carga estados
+  if (viewId === "view-terminal") {
+    loadTerminalStatuses();
+  }
 }
 
 navButtons.forEach((btn) => {
@@ -474,6 +485,86 @@ async function refreshStatusOnly() {
 }
 
 // ------------------------------
+// ✅ NUEVO: TERMINAL (todos los sensores online/apagados)
+// ------------------------------
+async function fetchStoreStatus(storeId) {
+  const url = `${STATUS_URL}?storeId=${encodeURIComponent(storeId)}`;
+  const res = await fetch(url, { cache: "no-store" });
+  if (!res.ok) throw new Error(`Status ${res.status}`);
+  return res.json();
+}
+
+function renderTerminalStatuses(list, filterValue = "all") {
+  if (!terminalResult) return;
+
+  const filtered = (list || []).filter((x) => {
+    if (filterValue === "online") return x.online === true;
+    if (filterValue === "offline") return x.online === false;
+    return true;
+  });
+
+  if (!filtered.length) {
+    terminalResult.innerHTML = `<p>No hay resultados para este filtro.</p>`;
+    return;
+  }
+
+  terminalResult.innerHTML = filtered
+    .map((x) => {
+      const storeName = getStoreName(x.storeId);
+      const on = x.online === true;
+
+      return `
+        <article class="status-card">
+          <div class="status-left">
+            <div class="status-store">${storeName}</div>
+            <div class="status-id">${x.storeId}${x.sn ? ` · SN: ${x.sn}` : ""}</div>
+          </div>
+
+          <div class="status-pill-mini ${on ? "on" : "off"}">
+            <span class="status-dot-mini ${on ? "on" : "off"}"></span>
+            ${on ? "En línea" : "Apagado"}
+          </div>
+        </article>
+      `;
+    })
+    .join("");
+}
+
+async function loadTerminalStatuses() {
+  if (!terminalResult) return;
+
+  if (!currentUser) {
+    terminalResult.innerHTML = `<p>Inicia sesión para ver Terminal.</p>`;
+    return;
+  }
+
+  if (!Array.isArray(currentStores) || !currentStores.length) {
+    terminalResult.innerHTML = `<p>No hay tiendas para este usuario.</p>`;
+    return;
+  }
+
+  terminalResult.innerHTML = `<p>Cargando estados...</p>`;
+
+  const tasks = currentStores.map(async (s) => {
+    try {
+      const st = await fetchStoreStatus(s.id);
+      return { storeId: s.id, online: !!st?.online, sn: st?.sn || "" };
+    } catch {
+      // Si falla, lo marcamos como apagado (así aparece en "offline")
+      return { storeId: s.id, online: false, sn: "" };
+    }
+  });
+
+  const results = await Promise.all(tasks);
+  const filterValue = terminalFilter?.value || "all";
+  renderTerminalStatuses(results, filterValue);
+}
+
+// listeners Terminal
+if (terminalRefreshBtn) terminalRefreshBtn.addEventListener("click", loadTerminalStatuses);
+if (terminalFilter) terminalFilter.addEventListener("change", loadTerminalStatuses);
+
+// ------------------------------
 // ✅ Toast + refresh total + watcher día
 // ------------------------------
 function showRefreshToast(msg) {
@@ -506,12 +597,16 @@ async function forceRefreshAll() {
 
   const hText = (historyDateInput?.value || "").trim();
   if (hText) {
-    try { await loadHistory(); } catch {}
+    try {
+      await loadHistory();
+    } catch {}
   }
 
   const cText = (chartDateInput?.value || "").trim();
   if (cText) {
-    try { await loadChart(); } catch {}
+    try {
+      await loadChart();
+    } catch {}
   }
 
   showRefreshToast(`Actualizado ✅ ${formatDateTimeDDMMYYYY(new Date())}`);
@@ -1266,10 +1361,7 @@ async function loadChart() {
             },
           },
           scales: {
-            y: {
-              beginAtZero: true,
-              title: { display: true, text: "Entradas / Salidas (por hora)" },
-            },
+            y: { beginAtZero: true, title: { display: true, text: "Entradas / Salidas (por hora)" } },
             y1: {
               beginAtZero: true,
               position: "right",
@@ -1291,11 +1383,7 @@ async function loadChart() {
     for (const day of days) {
       // eslint-disable-next-line no-await-in-loop
       const d = await fetchHistory(day);
-      results.push({
-        date: day,
-        entradas: Number(d.entradas || 0),
-        salidas: Number(d.salidas || 0),
-      });
+      results.push({ date: day, entradas: Number(d.entradas || 0), salidas: Number(d.salidas || 0) });
     }
 
     const labels = results.map((r) => formatDDMMYYYYFromISO(r.date));
@@ -1306,37 +1394,20 @@ async function loadChart() {
     const totalS = salidasD.reduce((a, b) => a + b, 0);
     const neto = totalE - totalS;
 
-    setKpis({
-      entradas: totalE,
-      salidas: totalS,
-      thirdLabel: "Neto",
-      thirdValue: neto,
-    });
+    setKpis({ entradas: totalE, salidas: totalS, thirdLabel: "Neto", thirdValue: neto });
 
     proChart = new Chart(chartCanvas, {
       type: "bar",
-      data: {
-        labels,
-        datasets: [
-          { label: "Entradas (totales/día)", data: entradasD },
-          { label: "Salidas (totales/día)", data: salidasD },
-        ],
-      },
+      data: { labels, datasets: [{ label: "Entradas (totales/día)", data: entradasD }, { label: "Salidas (totales/día)", data: salidasD }] },
       options: {
         responsive: true,
         maintainAspectRatio: false,
         interaction: { mode: "index", intersect: false },
         plugins: {
           legend: { position: "bottom" },
-          title: {
-            display: true,
-            text: `${storeName} — Rango: ${formatDDMMYYYYFromISO(isoFrom)} a ${formatDDMMYYYYFromISO(isoTo)}`,
-          },
+          title: { display: true, text: `${storeName} — Rango: ${formatDDMMYYYYFromISO(isoFrom)} a ${formatDDMMYYYYFromISO(isoTo)}` },
         },
-        scales: {
-          y: { beginAtZero: true, title: { display: true, text: "Total por día" } },
-          x: { title: { display: true, text: "Día" } },
-        },
+        scales: { y: { beginAtZero: true, title: { display: true, text: "Total por día" } }, x: { title: { display: true, text: "Día" } } },
       },
     });
   } catch (e) {
