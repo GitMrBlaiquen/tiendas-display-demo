@@ -1,23 +1,75 @@
-/* 🔥 Reset solo imagen */
-#resetStoreBtn.reset-btn {
-  background: none !important;
-  border: none !important;
-  padding: 0 !important;
-  box-shadow: none !important;
+/* =========================================================
+   ✅ NUEVO: SIDEBAR OVERLAY (solo UI, no toca tu lógica)
+========================================================= */
+(() => {
+  const sidebar = document.getElementById("sidebar");
+  const overlay = document.getElementById("sbOverlay");
+  const toggle = document.getElementById("sbToggle");
+  const closeBtn = document.getElementById("sbClose");
 
-  display: inline-block;
-  cursor: pointer;
+  if (!sidebar || !overlay || !toggle || !closeBtn) return;
+
+  function openSb() {
+    sidebar.classList.add("is-open");
+    overlay.hidden = false;
+    toggle.setAttribute("aria-expanded", "true");
+    sidebar.setAttribute("aria-hidden", "false");
+  }
+
+  function closeSb() {
+    sidebar.classList.remove("is-open");
+    overlay.hidden = true;
+    toggle.setAttribute("aria-expanded", "false");
+    sidebar.setAttribute("aria-hidden", "true");
+  }
+
+  toggle.addEventListener("click", () => {
+    const open = sidebar.classList.contains("is-open");
+    if (open) closeSb();
+    else openSb();
+  });
+
+  closeBtn.addEventListener("click", closeSb);
+  overlay.addEventListener("click", closeSb);
+
+  // ESC
+  window.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") closeSb();
+  });
+
+  // ✅ Cuando eliges un menú, cierra el sidebar (sin romper showView)
+  sidebar.querySelectorAll(".nav-btn[data-view]").forEach((btn) => {
+    btn.addEventListener("click", () => closeSb());
+  });
+})();
+
+const sbToggle = document.getElementById("sbToggle");   // botón ☰
+const sbClose = document.getElementById("sbClose");     // botón X
+const sidebar = document.getElementById("sidebar");
+const sbOverlay = document.getElementById("sbOverlay");
+
+function openSidebar() {
+  sidebar.classList.add("is-open");
+  sbOverlay.hidden = false;
+  sidebar.setAttribute("aria-hidden", "false");
+
+  // ✅ ocultar botón hamburguesa
+  if (sbToggle) sbToggle.style.display = "none";
 }
 
-/* tamaño del PNG */
-#resetStoreBtn.reset-btn img {
-  height: 44px;      /* 🔥 mismo alto que “Actualizar ahora” */
-  width: auto;
-  display: block;
+function closeSidebar() {
+  sidebar.classList.remove("is-open");
+  sbOverlay.hidden = true;
+  sidebar.setAttribute("aria-hidden", "true");
+
+  // ✅ volver a mostrar botón hamburguesa
+  if (sbToggle) sbToggle.style.display = "";
 }
 
-/* efecto hover sutil */
-#resetStoreBtn.reset-btn:hover img {
-  transform: scale(1.05);
-  transition: 0.2s ease;
+if (sbToggle) sbToggle.addEventListener("click", openSidebar);
+if (sbClose) sbClose.addEventListener("click", closeSidebar);
+
+// cerrar tocando el fondo
+if (sbOverlay) {
+  sbOverlay.addEventListener("click", closeSidebar);
 }
