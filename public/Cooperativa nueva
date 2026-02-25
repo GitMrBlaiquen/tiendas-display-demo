@@ -1,36 +1,23 @@
-/* ✅ Reset como botón normal (mismo alto que los otros) */
-#resetStoreBtn.reset-btn{
-  /* mismo “look” y tamaño que button:not(.nav-btn) */
-  padding: 10px 18px;          /* igual que el resto */
-  border-radius: 8px;          /* igual que el resto */
-  border: none;
+/* 🔥 Reset solo imagen */
+#resetStoreBtn.reset-btn {
+  background: none !important;
+  border: none !important;
+  padding: 0 !important;
+  box-shadow: none !important;
+
+  display: inline-block;
   cursor: pointer;
-  font-weight: 800;
-  background: #1C6DD0;         /* igual que el resto */
-  color: white;
-  box-shadow: 0 4px 10px rgba(28, 109, 208, 0.4);
-  transition: 0.2s;
-
-  /* para centrar el png */
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-
-  /* ancho similar a “Actualizar ahora” */
-  min-width: 190px;            /* ajusta si quieres */
-  height: 44px;                /* alto consistente */
-  gap: 10px;
 }
 
-/* hover igual al resto */
-#resetStoreBtn.reset-btn:hover{
-  background: #4DA9FF;
-  transform: translateY(-2px);
-}
-
-/* PNG dentro del botón */
-#resetStoreBtn.reset-btn img{
-  height: 22px;                /* tamaño del icono */
+/* tamaño del PNG */
+#resetStoreBtn.reset-btn img {
+  height: 44px;      /* 🔥 mismo alto que “Actualizar ahora” */
   width: auto;
   display: block;
+}
+
+/* efecto hover sutil */
+#resetStoreBtn.reset-btn:hover img {
+  transform: scale(1.05);
+  transition: 0.2s ease;
 }
