@@ -2,16 +2,16 @@
 // app.js
 // - Login + admin/dueño + vistas
 // - Polling de estado
-// - Cuadros (cards) de información
-// - Export Excel (.xlsx) (ahora / día)
-// - Donut (Chart.js) + toggle ON/OFF para panel fijo estilo tooltip negro
-// - ✅ dd/mm/yyyy + conversión a ISO
-// - ✅ Flatpickr pro
-// - ✅ Botones "Hoy" / "Limpiar" global
-// - ✅ NUEVO (Opción C): Dashboard profesional Día/Rango (solo Entradas/Salidas + Totales)
-// - ✅ NUEVO: Botón "Confirmar / Actualizar" + Toast + watcher de cambio de día
-// - ✅ FIX: Reset tienda (Admin) queda FUERA de forceRefreshAll + refresca UI completo
+// - Cards info tienda
+// - Export Excel
+// - Donut + panel fijo
+// - Fechas dd/mm/yyyy + Flatpickr + Hoy/Limpiar
+// - Dashboard Chart día/rango
+// - Confirmar/Actualizar + Toast + watcher cambio día
+// - Reset tienda (Admin)
 // - ✅ NUEVO: Vista TERMINAL (todos los sensores online/apagados)
+// - ✅ Ocultar selectores SOLO en Terminal
+// - ✅ Sidebar overlay (UI)
 // ==============================
 
 const BASE_URL = window.location.origin;
@@ -51,14 +51,12 @@ function isValidDDMMYYYY(dateStr) {
 function convertDDMMYYYYtoISO(dateStr) {
   const s = String(dateStr || "").trim();
   if (!isValidDDMMYYYY(s)) return null;
-
   const [dd, mm, yyyy] = s.split("/");
   return `${yyyy}-${mm}-${dd}`;
 }
 
 function autoFormatDateInput(input) {
   if (!input) return;
-
   input.addEventListener("input", () => {
     let value = input.value.replace(/\D/g, "");
     if (value.length > 8) value = value.slice(0, 8);
@@ -82,7 +80,7 @@ function todayDDMMYYYY() {
 }
 
 // ------------------------------
-// ✅ Botones Hoy / Limpiar: listener global
+// ✅ Botones Hoy / Limpiar global
 // ------------------------------
 function setupGlobalDateButtons() {
   document.addEventListener(
@@ -90,7 +88,6 @@ function setupGlobalDateButtons() {
     (e) => {
       const todayBtn = e.target.closest("[data-today-for]");
       const clearBtn = e.target.closest("[data-clear-for]");
-
       if (!todayBtn && !clearBtn) return;
 
       e.preventDefault();
@@ -102,11 +99,7 @@ function setupGlobalDateButtons() {
         if (!input) return;
 
         const today = new Date();
-        const dd = String(today.getDate()).padStart(2, "0");
-        const mm = String(today.getMonth() + 1).padStart(2, "0");
-        const yyyy = String(today.getFullYear());
-        const ddmm = `${dd}/${mm}/${yyyy}`;
-
+        const ddmm = todayDDMMYYYY();
         input.value = ddmm;
 
         if (input._flatpickr) {
@@ -186,7 +179,7 @@ const refreshBtn = document.getElementById("refreshBtn");
 const refreshSelect = document.getElementById("refreshInterval");
 const resetStoreBtn = document.getElementById("resetStoreBtn");
 
-// ✅ botón confirmar/actualizar + toast
+// Confirmar/Actualizar + toast
 const forceRefreshBtn = document.getElementById("forceRefreshBtn");
 const refreshToast = document.getElementById("refreshToast");
 
@@ -194,8 +187,6 @@ const refreshToast = document.getElementById("refreshToast");
 const loginPanel = document.getElementById("loginPanel");
 const mainContent = document.getElementById("mainContent");
 const usernameInput = document.getElementById("usernameInput");
-
-// ✅ robusto: si no hay id="passwordInput"
 const passwordInput =
   document.getElementById("passwordInput") ||
   document.querySelector('#loginPanel input[type="password"]');
@@ -208,17 +199,17 @@ const userBadge = document.getElementById("userBadge");
 const userInfo = document.getElementById("userInfo");
 const logoutBtn = document.getElementById("logoutBtn");
 
-// Selector de cliente (solo admin)
+// Selectores
 const clientSelectorSection = document.getElementById("clientSelectorSection");
 const clientSelect = document.getElementById("clientSelect");
 
-// Selector de tienda
+const storeSelectorSection =
+  document.getElementById("storeSelectorSection") ||
+  document.querySelector(".store-selector");
+
 const storeSelect = document.getElementById("storeSelect");
 
-// Ocultar selector de tienda y clientes en Terminal
-const storeSelectorSection = document.getElementById("storeSelectorSection") || document.querySelector(".store-selector");
-
-// Modal de inactividad
+// Modal inactividad
 const sessionWarningModal = document.getElementById("sessionWarningModal");
 const stayLoggedBtn = document.getElementById("stayLoggedBtn");
 const logoutNowBtn = document.getElementById("logoutNowBtn");
@@ -253,10 +244,10 @@ const pinDonutBtn = document.getElementById("pinDonutBtn");
 const donutPinnedPanel = document.getElementById("donutPinnedPanel");
 let donutChart = null;
 
-// ✅ NUEVO: TERMINAL (todos los sensores)
-const terminalRefreshBtn = document.getElementById("terminalRefreshBtn");
-const terminalFilter = document.getElementById("terminalFilter");
-const terminalResult = document.getElementById("terminalResult");
+// ✅ TERMINAL (ids según tu HTML)
+const refreshAllStatusBtn = document.getElementById("refreshAllStatusBtn");
+const statusFilter = document.getElementById("statusFilter");
+const allStatusResult = document.getElementById("allStatusResult");
 
 // ✅ activar listener global de botones
 setupGlobalDateButtons();
@@ -279,7 +270,7 @@ let currentClientId = null;
 let donutPinnedOn = false;
 let lastCountersForDonut = null;
 
-// ✅ watcher de cambio de día
+// watcher cambio de día
 let lastUiDayKey = null;
 let dayWatchId = null;
 
@@ -363,91 +354,25 @@ function getStoreName(storeId) {
   return storeName;
 }
 
-function updateSelectorsVisibilityForView(viewId) {
-  const isTerminal = viewId === "view-status-all";
-
-  // En Terminal: ocultamos ambos
-  if (isTerminal) {
-    if (clientSelectorSection) clientSelectorSection.style.display = "none";
-    if (storeSelectorSection) storeSelectorSection.style.display = "none";
-    return;
-  }
-
-  // Fuera de Terminal: restauramos según tu lógica actual
-  if (clientSelectorSection) {
-    const shouldShowClient = currentRole === "admin" && (clients?.length || 0) > 0;
-    clientSelectorSection.style.display = shouldShowClient ? "block" : "none";
-  }
-
-  // La tienda siempre debe verse en las vistas normales
-  if (storeSelectorSection) storeSelectorSection.style.display = "block";
-}
-
 // ------------------------------
-// Menú lateral: cambiar vista
+// ✅ Menú lateral: cambiar vista
+// - Oculta selectores SOLO en Terminal
+// - Carga estados al entrar a Terminal
 // ------------------------------
 function showView(viewId) {
-  // Cambiar vista activa
+  // activar vista
   views.forEach((v) => v.classList.remove("active-view"));
   const el = document.getElementById(viewId);
   if (el) el.classList.add("active-view");
 
-  // Activar botón del menú
+  // activar botón
   navButtons.forEach((b) => b.classList.remove("active"));
   const btn = document.querySelector(`.nav-btn[data-view="${viewId}"]`);
   if (btn) btn.classList.add("active");
 
-  // Referencias a los selectores
-  const clientSelectorSection = document.getElementById("clientSelectorSection");
-  const storeSelectorSection = document.getElementById("storeSelectorSection");
-
   const isTerminal = viewId === "view-status-all";
 
-  // Guardar display original (solo la primera vez)
-  if (clientSelectorSection && !clientSelectorSection.dataset.prevDisplay) {
-    clientSelectorSection.dataset.prevDisplay =
-      clientSelectorSection.style.display || "";
-  }
-
-  if (storeSelectorSection && !storeSelectorSection.dataset.prevDisplay) {
-    storeSelectorSection.dataset.prevDisplay =
-      storeSelectorSection.style.display || "";
-  }
-
-  // Ocultar solo en Terminal
-  if (isTerminal) {
-    if (clientSelectorSection) clientSelectorSection.style.display = "none";
-    if (storeSelectorSection) storeSelectorSection.style.display = "none";
-  } else {
-    // Restaurar tienda siempre
-    if (storeSelectorSection) {
-      storeSelectorSection.style.display =
-        storeSelectorSection.dataset.prevDisplay || "";
-    }
-
-    // Restaurar cliente solo si es admin
-    if (clientSelectorSection) {
-      clientSelectorSection.style.display =
-        currentRole === "admin"
-          ? clientSelectorSection.dataset.prevDisplay || ""
-          : "none";
-    }
-  }
-
-  // Opcional: cargar estados automáticamente al entrar a Terminal
-  if (isTerminal && typeof loadTerminalStatuses === "function") {
-    loadTerminalStatuses();
-  }
-}
-
-navButtons.forEach((btn) => {
-  btn.addEventListener("click", () => {
-    const viewId = btn.dataset.view;
-    if (viewId) showView(viewId);
-  });
-});
-
-  // guardamos el display “normal” (para poder restaurarlo)
+  // guardar display “normal” 1 vez
   if (clientSelectorSection && clientSelectorSection.dataset.prevDisplay == null) {
     clientSelectorSection.dataset.prevDisplay = clientSelectorSection.style.display || "";
   }
@@ -458,16 +383,28 @@ navButtons.forEach((btn) => {
   if (isTerminal) {
     if (clientSelectorSection) clientSelectorSection.style.display = "none";
     if (storeSelectorSection) storeSelectorSection.style.display = "none";
+    // auto-cargar terminal
+    loadAllStatuses();
   } else {
-    // restaurar: el cliente solo debe mostrarse si eres admin (como ya lo haces en login)
-    if (clientSelectorSection) {
-      clientSelectorSection.style.display = clientSelectorSection.dataset.prevDisplay || "";
-    }
+    // restaurar tienda
     if (storeSelectorSection) {
       storeSelectorSection.style.display = storeSelectorSection.dataset.prevDisplay || "";
     }
+    // restaurar cliente SOLO si admin (si no, se queda oculto)
+    if (clientSelectorSection) {
+      clientSelectorSection.style.display =
+        currentRole === "admin" ? clientSelectorSection.dataset.prevDisplay || "" : "none";
+    }
   }
-  
+}
+
+navButtons.forEach((btn) => {
+  btn.addEventListener("click", () => {
+    const viewId = btn.dataset.view;
+    if (viewId) showView(viewId);
+  });
+});
+
 // ------------------------------
 // Inactividad
 // ------------------------------
@@ -558,94 +495,13 @@ async function refreshStatusOnly() {
     const sn = status?.sn || "SN desconocido";
 
     snEl.innerHTML = `SN: <strong>${sn}</strong>`;
-
     statusPill.classList.remove("status-on", "status-off");
     statusPill.classList.add(online ? "status-on" : "status-off");
     statusPill.textContent = online ? "🟢 Encendido" : "🔴 Apagado";
   } catch {
-    // no rompemos UI
+    // no romper UI
   }
 }
-
-// ------------------------------
-// ✅ NUEVO: TERMINAL (todos los sensores online/apagados)
-// ------------------------------
-async function fetchStoreStatus(storeId) {
-  const url = `${STATUS_URL}?storeId=${encodeURIComponent(storeId)}`;
-  const res = await fetch(url, { cache: "no-store" });
-  if (!res.ok) throw new Error(`Status ${res.status}`);
-  return res.json();
-}
-
-function renderTerminalStatuses(list, filterValue = "all") {
-  if (!terminalResult) return;
-
-  const filtered = (list || []).filter((x) => {
-    if (filterValue === "online") return x.online === true;
-    if (filterValue === "offline") return x.online === false;
-    return true;
-  });
-
-  if (!filtered.length) {
-    terminalResult.innerHTML = `<p>No hay resultados para este filtro.</p>`;
-    return;
-  }
-
-  terminalResult.innerHTML = filtered
-    .map((x) => {
-      const storeName = getStoreName(x.storeId);
-      const on = x.online === true;
-
-      return `
-        <article class="status-card">
-          <div class="status-left">
-            <div class="status-store">${storeName}</div>
-            <div class="status-id">${x.storeId}${x.sn ? ` · SN: ${x.sn}` : ""}</div>
-          </div>
-
-          <div class="status-pill-mini ${on ? "on" : "off"}">
-            <span class="status-dot-mini ${on ? "on" : "off"}"></span>
-            ${on ? "En línea" : "Apagado"}
-          </div>
-        </article>
-      `;
-    })
-    .join("");
-}
-
-async function loadTerminalStatuses() {
-  if (!terminalResult) return;
-
-  if (!currentUser) {
-    terminalResult.innerHTML = `<p>Inicia sesión para ver Terminal.</p>`;
-    return;
-  }
-
-  if (!Array.isArray(currentStores) || !currentStores.length) {
-    terminalResult.innerHTML = `<p>No hay tiendas para este usuario.</p>`;
-    return;
-  }
-
-  terminalResult.innerHTML = `<p>Cargando estados...</p>`;
-
-  const tasks = currentStores.map(async (s) => {
-    try {
-      const st = await fetchStoreStatus(s.id);
-      return { storeId: s.id, online: !!st?.online, sn: st?.sn || "" };
-    } catch {
-      // Si falla, lo marcamos como apagado (así aparece en "offline")
-      return { storeId: s.id, online: false, sn: "" };
-    }
-  });
-
-  const results = await Promise.all(tasks);
-  const filterValue = terminalFilter?.value || "all";
-  renderTerminalStatuses(results, filterValue);
-}
-
-// listeners Terminal
-if (terminalRefreshBtn) terminalRefreshBtn.addEventListener("click", loadTerminalStatuses);
-if (terminalFilter) terminalFilter.addEventListener("change", loadTerminalStatuses);
 
 // ------------------------------
 // ✅ Toast + refresh total + watcher día
@@ -701,7 +557,6 @@ function startDayWatcher() {
 
   dayWatchId = setInterval(() => {
     if (!currentUser || !currentStoreId) return;
-
     const nowKey = getLocalDayKey();
     if (nowKey !== lastUiDayKey) {
       lastUiDayKey = nowKey;
@@ -764,9 +619,7 @@ async function resetCurrentStoreAdmin() {
   }
 }
 
-if (resetStoreBtn) {
-  resetStoreBtn.addEventListener("click", resetCurrentStoreAdmin);
-}
+if (resetStoreBtn) resetStoreBtn.addEventListener("click", resetCurrentStoreAdmin);
 
 // ------------------------------
 // Login
@@ -808,14 +661,11 @@ async function login() {
       return;
     }
 
-    if (resetStoreBtn) {
-      resetStoreBtn.style.display = currentRole === "admin" ? "inline-flex" : "none";
-    }
+    if (resetStoreBtn) resetStoreBtn.style.display = currentRole === "admin" ? "inline-flex" : "none";
 
     if (userInfo) {
       const roleMap = { admin: "Administrador", dueño: "Dueño", usuario: "Usuario" };
       const roleLabel = roleMap[currentRole] || "Usuario";
-
       userInfo.innerHTML = `
         <img src="user.png" class="user-avatar" alt="Usuario">
         <span class="user-name">${currentUser}</span>
@@ -861,7 +711,7 @@ async function login() {
     if (currentStoreId) {
       await loadSensors();
       refreshStatusOnly();
-    } else {
+    } else if (sensorsContainer) {
       sensorsContainer.innerHTML = "<p>No hay tiendas disponibles para este usuario.</p>";
     }
   } catch (err) {
@@ -884,9 +734,7 @@ function logout() {
     autoRefreshId = null;
   }
   stopStatusPolling();
-
   stopDayWatcher();
-
   clearInactivityTimers();
   hideInactivityWarning();
 
@@ -903,8 +751,7 @@ function logout() {
   if (clientSelectorSection) clientSelectorSection.style.display = "none";
   if (resetStoreBtn) resetStoreBtn.style.display = "none";
 
-  if (sensorsContainer)
-    sensorsContainer.innerHTML = "<p>Inicia sesión para ver el contador de personas.</p>";
+  if (sensorsContainer) sensorsContainer.innerHTML = "<p>Inicia sesión para ver el contador de personas.</p>";
 
   destroyDonut();
   hidePinnedPanel();
@@ -916,7 +763,6 @@ function logout() {
 
   if (mainContent) mainContent.style.display = "none";
   if (loginPanel) loginPanel.style.display = "flex";
-
   if (userBadge) userBadge.style.display = "none";
 }
 
@@ -933,7 +779,7 @@ if (clientSelect) {
     if (currentStoreId) {
       loadSensors();
       refreshStatusOnly();
-    } else {
+    } else if (sensorsContainer) {
       sensorsContainer.innerHTML = "<p>No hay tiendas asociadas a este cliente.</p>";
     }
   });
@@ -952,12 +798,12 @@ if (storeSelect) {
 // ------------------------------
 async function loadSensors() {
   if (!currentStoreId) {
-    sensorsContainer.innerHTML = "<p>Selecciona una tienda para ver los datos.</p>";
+    if (sensorsContainer) sensorsContainer.innerHTML = "<p>Selecciona una tienda para ver los datos.</p>";
     return;
   }
 
   try {
-    sensorsContainer.innerHTML = "<p>Cargando datos de la tienda...</p>";
+    if (sensorsContainer) sensorsContainer.innerHTML = "<p>Cargando datos de la tienda...</p>";
 
     const urlCounters = `${COUNTERS_URL}?storeId=${encodeURIComponent(currentStoreId)}`;
     const urlStatus = `${STATUS_URL}?storeId=${encodeURIComponent(currentStoreId)}`;
@@ -977,7 +823,10 @@ async function loadSensors() {
     if (donutPinnedOn) renderPinnedPanelFromCounters(counters);
   } catch (err) {
     console.error(err);
-    sensorsContainer.innerHTML = `<p style="color:red;">No se pudieron cargar los datos de la tienda. Revisa el servidor.</p>`;
+    if (sensorsContainer) {
+      sensorsContainer.innerHTML =
+        `<p style="color:red;">No se pudieron cargar los datos de la tienda. Revisa el servidor.</p>`;
+    }
   }
 }
 
@@ -997,6 +846,7 @@ function renderStoreCountersCards(counters, status) {
   const online = !!status?.online;
   const sn = status?.sn || "SN desconocido";
 
+  if (!sensorsContainer) return;
   sensorsContainer.innerHTML = "";
 
   const card = document.createElement("article");
@@ -1006,33 +856,33 @@ function renderStoreCountersCards(counters, status) {
   const storeName = getStoreName(storeId);
 
   card.innerHTML = `
-  <div class="sensor-header">
-    <div>
-      <div class="sensor-id">${storeName}</div>
-      <div class="sensor-type">Contador de personas</div>
-    </div>
+    <div class="sensor-header">
+      <div>
+        <div class="sensor-id">${storeName}</div>
+        <div class="sensor-type">Contador de personas</div>
+      </div>
 
-    <div class="sensor-right">
-      <div class="sensor-sn" id="sensorSn">SN: <strong>${sn}</strong></div>
-      <div id="statusPill" class="status-pill ${online ? "status-on" : "status-off"}">
-        ${online ? "🟢 Encendido" : "🔴 Apagado"}
+      <div class="sensor-right">
+        <div class="sensor-sn" id="sensorSn">SN: <strong>${sn}</strong></div>
+        <div id="statusPill" class="status-pill ${online ? "status-on" : "status-off"}">
+          ${online ? "🟢 Encendido" : "🔴 Apagado"}
+        </div>
       </div>
     </div>
-  </div>
 
-  <div class="info-grid">
-    ${infoBox("Clientes que han ENTRADO", entradas, "")}
-    ${infoBox("Clientes que han SALIDO", salidas, "")}
-    ${infoBox("Clientes DENTRO", dentro, "")}
+    <div class="info-grid">
+      ${infoBox("Clientes que han ENTRADO", entradas, "")}
+      ${infoBox("Clientes que han SALIDO", salidas, "")}
+      ${infoBox("Clientes DENTRO", dentro, "")}
 
-    ${infoBox("Niños que han ENTRADO", inChild, "")}
-    ${infoBox("Niños que han SALIDO", outChild, "")}
-    ${infoBox("Empleados", workersIn, "")}
+      ${infoBox("Niños que han ENTRADO", inChild, "")}
+      ${infoBox("Niños que han SALIDO", outChild, "")}
+      ${infoBox("Empleados", workersIn, "")}
 
-    ${infoBox("Total ENTRADAS", totalEntradas, "")}
-    ${infoBox("Total SALIDAS", totalSalidas, "")}
-    ${infoBox("Última actualización", nowStr, "Hora local", true)}
-  </div>
+      ${infoBox("Total ENTRADAS", totalEntradas, "")}
+      ${infoBox("Total SALIDAS", totalSalidas, "")}
+      ${infoBox("Última actualización", nowStr, "Hora local", true)}
+    </div>
   `;
 
   sensorsContainer.appendChild(card);
@@ -1041,11 +891,11 @@ function renderStoreCountersCards(counters, status) {
 function infoBox(title, value, subtitle, isTime = false) {
   const v = isTime ? value : Number(value || 0);
   return `
-  <div class="info-box">
-    <div class="info-title">${title}</div>
-    <div class="info-value">${v}</div>
-    <div class="info-sub">${subtitle || ""}</div>
-  </div>
+    <div class="info-box">
+      <div class="info-title">${title}</div>
+      <div class="info-value">${v}</div>
+      <div class="info-sub">${subtitle || ""}</div>
+    </div>
   `;
 }
 
@@ -1075,7 +925,7 @@ if (exportNowBtn) exportNowBtn.addEventListener("click", exportNow);
 if (exportDayBtn) exportDayBtn.addEventListener("click", exportDay);
 
 // ------------------------------
-// ✅ DONUT + PANEL FIJO TIPO TOOLTIP
+// ✅ DONUT + PANEL FIJO
 // ------------------------------
 const DONUT_LABELS = [
   "Clientes (Entraron)",
@@ -1147,19 +997,19 @@ function renderPinnedPanelFromCounters(counters) {
   ];
 
   donutPinnedPanel.innerHTML = `
-  <div class="donut-pinned-title">📌 ${storeName}</div>
-  ${DONUT_LABELS.map((label, i) => {
-    const v = values[i];
-    const color = DONUT_COLORS[i];
-    return `
-    <div class="donut-pinned-row">
-      <span class="donut-pinned-swatch" style="background:${color};"></span>
-      <span class="donut-pinned-label">${label}</span>
-      <span class="donut-pinned-value">${v}</span>
-    </div>
-    `;
-  }).join("")}
-  <div class="donut-pinned-sub">(OFF: vuelve el tooltip al pasar el cursor)</div>
+    <div class="donut-pinned-title">📌 ${storeName}</div>
+    ${DONUT_LABELS.map((label, i) => {
+      const v = values[i];
+      const color = DONUT_COLORS[i];
+      return `
+        <div class="donut-pinned-row">
+          <span class="donut-pinned-swatch" style="background:${color};"></span>
+          <span class="donut-pinned-label">${label}</span>
+          <span class="donut-pinned-value">${v}</span>
+        </div>
+      `;
+    }).join("")}
+    <div class="donut-pinned-sub">(OFF: vuelve el tooltip al pasar el cursor)</div>
   `;
 
   showPinnedPanel();
@@ -1183,9 +1033,7 @@ function setDonutPinned(on) {
 }
 
 if (pinDonutBtn) {
-  pinDonutBtn.addEventListener("click", () => {
-    setDonutPinned(!donutPinnedOn);
-  });
+  pinDonutBtn.addEventListener("click", () => setDonutPinned(!donutPinnedOn));
 }
 
 // ------------------------------
@@ -1233,7 +1081,7 @@ async function loadHistory() {
 if (loadHistoryBtn) loadHistoryBtn.addEventListener("click", loadHistory);
 
 // ------------------------------
-// ✅ DASHBOARD PRO: Día / Rango (solo Entradas/Salidas)
+// ✅ DASHBOARD PRO: Chart día / rango
 // ------------------------------
 function destroyProChart() {
   if (proChart) {
@@ -1253,7 +1101,6 @@ function ensureChartKpiPanel() {
 
   kpi = document.createElement("div");
   kpi.id = "chartKpiPanel";
-
   kpi.style.display = "flex";
   kpi.style.gap = "10px";
   kpi.style.flexWrap = "wrap";
@@ -1403,12 +1250,7 @@ async function loadChart() {
       const data = await fetchHistory(isoFrom);
       const pack = buildDayChartDatasets(data.byHour || {});
 
-      setKpis({
-        entradas: pack.totalE,
-        salidas: pack.totalS,
-        thirdLabel: "Máx. Dentro",
-        thirdValue: pack.maxDentro,
-      });
+      setKpis({ entradas: pack.totalE, salidas: pack.totalS, thirdLabel: "Máx. Dentro", thirdValue: pack.maxDentro });
 
       proChart = new Chart(chartCanvas, {
         type: "bar",
@@ -1417,14 +1259,7 @@ async function loadChart() {
           datasets: [
             { label: "Entradas", data: pack.entradasH, yAxisID: "y" },
             { label: "Salidas", data: pack.salidasH, yAxisID: "y" },
-            {
-              label: "Dentro (estimado)",
-              type: "line",
-              data: pack.dentroLine,
-              yAxisID: "y1",
-              tension: 0.25,
-              pointRadius: 0,
-            },
+            { label: "Dentro (estimado)", type: "line", data: pack.dentroLine, yAxisID: "y1", tension: 0.25, pointRadius: 0 },
           ],
         },
         options: {
@@ -1433,24 +1268,12 @@ async function loadChart() {
           interaction: { mode: "index", intersect: false },
           plugins: {
             legend: { position: "bottom" },
-            title: {
-              display: true,
-              text: `${storeName} — ${formatDDMMYYYYFromISO(isoFrom)} (por hora)`,
-            },
-            tooltip: {
-              callbacks: {
-                title: (items) => `Hora: ${items?.[0]?.label}:00`,
-              },
-            },
+            title: { display: true, text: `${storeName} — ${formatDDMMYYYYFromISO(isoFrom)} (por hora)` },
+            tooltip: { callbacks: { title: (items) => `Hora: ${items?.[0]?.label}:00` } },
           },
           scales: {
             y: { beginAtZero: true, title: { display: true, text: "Entradas / Salidas (por hora)" } },
-            y1: {
-              beginAtZero: true,
-              position: "right",
-              grid: { drawOnChartArea: false },
-              title: { display: true, text: "Dentro (estimado)" },
-            },
+            y1: { beginAtZero: true, position: "right", grid: { drawOnChartArea: false }, title: { display: true, text: "Dentro (estimado)" } },
             x: { title: { display: true, text: "Hora" } },
           },
         },
@@ -1490,7 +1313,10 @@ async function loadChart() {
           legend: { position: "bottom" },
           title: { display: true, text: `${storeName} — Rango: ${formatDDMMYYYYFromISO(isoFrom)} a ${formatDDMMYYYYFromISO(isoTo)}` },
         },
-        scales: { y: { beginAtZero: true, title: { display: true, text: "Total por día" } }, x: { title: { display: true, text: "Día" } } },
+        scales: {
+          y: { beginAtZero: true, title: { display: true, text: "Total por día" } },
+          x: { title: { display: true, text: "Día" } },
+        },
       },
     });
   } catch (e) {
@@ -1522,18 +1348,14 @@ if (refreshSelect) {
       autoRefreshId = null;
     }
 
-    if (interval > 0) {
-      autoRefreshId = setInterval(() => loadSensors(), interval);
-    }
+    if (interval > 0) autoRefreshId = setInterval(() => loadSensors(), interval);
   });
 }
 
-if (sensorsContainer) {
-  sensorsContainer.innerHTML = "<p>Inicia sesión para ver el contador de personas.</p>";
-}
+if (sensorsContainer) sensorsContainer.innerHTML = "<p>Inicia sesión para ver el contador de personas.</p>";
 
 // ------------------------------
-// ✅ Activar autoformato si NO hay flatpickr
+// ✅ Autoformato si NO hay flatpickr
 // ------------------------------
 const hasFlatpickr = !!window.flatpickr;
 if (!hasFlatpickr) {
@@ -1544,66 +1366,9 @@ if (!hasFlatpickr) {
   initFlatpickr();
 }
 
-/* =========================================================
-   ✅ SIDEBAR OVERLAY (UI)
-   - El botón ☰ se OCULTA solo cuando el menú está abierto
-   - Vuelve a aparecer cuando se CIERRA el menú
-========================================================= */
-(() => {
-  const sidebar = document.getElementById("sidebar");
-  const overlay = document.getElementById("sbOverlay");
-  const toggle  = document.getElementById("sbToggle"); // ☰
-  const closeBtn = document.getElementById("sbClose"); // X
-
-  if (!sidebar || !overlay || !toggle || !closeBtn) return;
-
-  function openSb() {
-    sidebar.classList.add("is-open");
-    overlay.hidden = false;
-
-    sidebar.setAttribute("aria-hidden", "false");
-    toggle.setAttribute("aria-expanded", "true");
-
-    // ✅ ocultar botón hamburguesa mientras el menú está abierto
-    toggle.style.display = "none";
-  }
-
-  function closeSb() {
-    sidebar.classList.remove("is-open");
-    overlay.hidden = true;
-
-    sidebar.setAttribute("aria-hidden", "true");
-    toggle.setAttribute("aria-expanded", "false");
-
-    // ✅ volver a mostrar botón hamburguesa al cerrar
-    toggle.style.display = "";
-  }
-
-  // Toggle (solo abre, porque al abrir se oculta)
-  toggle.addEventListener("click", openSb);
-
-  // Cerrar
-  closeBtn.addEventListener("click", closeSb);
-  overlay.addEventListener("click", closeSb);
-
-  // ESC
-  window.addEventListener("keydown", (e) => {
-    if (e.key === "Escape") closeSb();
-  });
-
-  // ✅ Cuando eliges un menú, cierra el sidebar (y vuelve el botón)
-  sidebar.querySelectorAll(".nav-btn[data-view]").forEach((btn) => {
-    btn.addEventListener("click", () => closeSb());
-  });
-})();
-
 // ------------------------------
-// ✅ NUEVO: TERMINAL (todas las tiendas online/apagadas)
+// ✅ TERMINAL: todas las tiendas online / apagado
 // ------------------------------
-const refreshAllStatusBtn = document.getElementById("refreshAllStatusBtn");
-const statusFilter = document.getElementById("statusFilter");
-const allStatusResult = document.getElementById("allStatusResult");
-
 async function fetchStoreStatus(storeId) {
   const url = `${STATUS_URL}?storeId=${encodeURIComponent(storeId)}`;
   const res = await fetch(url, { cache: "no-store" });
@@ -1629,7 +1394,6 @@ function renderAllStatuses(list, filterValue = "all") {
     .map((x) => {
       const storeName = getStoreName(x.storeId);
       const on = x.online === true;
-
       return `
         <article class="status-card">
           <div class="status-left">
@@ -1667,7 +1431,6 @@ async function loadAllStatuses() {
       const st = await fetchStoreStatus(s.id);
       return { storeId: s.id, online: !!st?.online, sn: st?.sn || "" };
     } catch {
-      // si falla una tienda, la marcamos como apagada para que aparezca en "offline"
       return { storeId: s.id, online: false, sn: "" };
     }
   });
@@ -1677,15 +1440,52 @@ async function loadAllStatuses() {
   renderAllStatuses(results, filterValue);
 }
 
-// ✅ Al entrar a la vista Terminal, carga automáticamente
-const _oldShowView = showView;
-showView = function (viewId) {
-  _oldShowView(viewId);
-  if (viewId === "view-status-all") {
-    loadAllStatuses();
-  }
-};
-
-// Listeners UI
 if (refreshAllStatusBtn) refreshAllStatusBtn.addEventListener("click", loadAllStatuses);
 if (statusFilter) statusFilter.addEventListener("change", loadAllStatuses);
+
+/* =========================================================
+   ✅ SIDEBAR OVERLAY (UI)
+   - El botón ☰ se OCULTA solo cuando el menú está abierto
+   - Vuelve a aparecer cuando se CIERRA el menú
+========================================================= */
+(() => {
+  const sidebar = document.getElementById("sidebar");
+  const overlay = document.getElementById("sbOverlay");
+  const toggle = document.getElementById("sbToggle"); // ☰
+  const closeBtn = document.getElementById("sbClose"); // X
+
+  if (!sidebar || !overlay || !toggle || !closeBtn) return;
+
+  function openSb() {
+    sidebar.classList.add("is-open");
+    overlay.hidden = false;
+
+    sidebar.setAttribute("aria-hidden", "false");
+    toggle.setAttribute("aria-expanded", "true");
+
+    toggle.style.display = "none";
+  }
+
+  function closeSb() {
+    sidebar.classList.remove("is-open");
+    overlay.hidden = true;
+
+    sidebar.setAttribute("aria-hidden", "true");
+    toggle.setAttribute("aria-expanded", "false");
+
+    toggle.style.display = "";
+  }
+
+  toggle.addEventListener("click", openSb);
+
+  closeBtn.addEventListener("click", closeSb);
+  overlay.addEventListener("click", closeSb);
+
+  window.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") closeSb();
+  });
+
+  sidebar.querySelectorAll(".nav-btn[data-view]").forEach((btn) => {
+    btn.addEventListener("click", () => closeSb());
+  });
+})();
