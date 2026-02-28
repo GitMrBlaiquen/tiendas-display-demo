@@ -1,105 +1,92 @@
-/* =========================================
-   CUSTOM SELECT MODERNO
-========================================= */
-
-.custom-select {
-  position: relative;
-  width: 260px;
-  font-weight: 900;
+/* Oculta el select nativo (pero lo deja en el DOM para que tu JS siga funcionando) */
+.native-select-hidden{
+  position: absolute !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+  width: 1px !important;
+  height: 1px !important;
+  margin: 0 !important;
+  padding: 0 !important;
 }
 
-.custom-select-display {
-  background: rgba(255,255,255,0.95);
-  border-radius: 18px;
-  padding: 14px 18px;
-  cursor: pointer;
-  box-shadow: 0 12px 30px rgba(10,35,66,0.12);
-  border: 1px solid rgba(28,109,208,0.3);
-  transition: 0.2s ease;
-}
 
-.custom-select-display:hover {
-  transform: translateY(-2px);
-}
-
-.custom-select-options {
-  position: absolute;
-  top: 110%;
-  left: 0;
-  width: 100%;
-  background: white;
-  border-radius: 14px;
-  box-shadow: 0 15px 40px rgba(0,0,0,0.15);
-  overflow: hidden;
-  display: none;
-  z-index: 999;
-}
-
-.custom-select-options div {
-  padding: 12px 16px;
-  cursor: pointer;
-  transition: 0.15s ease;
-}
-
-.custom-select-options div:hover {
-  background: #1C6DD0;
-  color: white;
-}
-
-function makeCustomSelect(selectId) {
+function makeCustomSelect(selectId, { iconSrc = "" } = {}) {
   const original = document.getElementById(selectId);
   if (!original) return;
 
-  original.style.display = "none";
+  // Evita duplicados
+  if (original.dataset.customReady === "1") return;
+  original.dataset.customReady = "1";
 
+  // Ocultar select nativo de forma segura
+  original.classList.add("native-select-hidden");
+
+  // Wrapper
   const wrapper = document.createElement("div");
   wrapper.className = "custom-select";
 
   const display = document.createElement("div");
   display.className = "custom-select-display";
-  display.textContent = original.options[original.selectedIndex]?.text || "Seleccionar";
+
+  // (Opcional) ícono
+  if (iconSrc) {
+    const ico = document.createElement("img");
+    ico.src = iconSrc;
+    ico.alt = "";
+    ico.style.width = "18px";
+    ico.style.height = "18px";
+    ico.style.objectFit = "contain";
+    ico.style.marginRight = "10px";
+    ico.style.verticalAlign = "middle";
+    display.appendChild(ico);
+  }
+
+  const txt = document.createElement("span");
+  txt.textContent = original.options[original.selectedIndex]?.text || "Seleccionar";
+  display.appendChild(txt);
 
   const optionsBox = document.createElement("div");
   optionsBox.className = "custom-select-options";
 
   function rebuildOptions() {
     optionsBox.innerHTML = "";
-    Array.from(original.options).forEach(opt => {
-      const div = document.createElement("div");
-      div.textContent = opt.text;
-      div.addEventListener("click", () => {
+    Array.from(original.options).forEach((opt) => {
+      const item = document.createElement("div");
+      item.textContent = opt.text;
+
+      item.addEventListener("click", () => {
         original.value = opt.value;
-        display.textContent = opt.text;
+        txt.textContent = opt.text;
         optionsBox.style.display = "none";
-        original.dispatchEvent(new Event("change"));
+        original.dispatchEvent(new Event("change", { bubbles: true }));
       });
-      optionsBox.appendChild(div);
+
+      optionsBox.appendChild(item);
     });
+
+    // refresca texto por si cambia el selectedIndex
+    txt.textContent = original.options[original.selectedIndex]?.text || "Seleccionar";
   }
 
-  display.addEventListener("click", () => {
-    optionsBox.style.display =
-      optionsBox.style.display === "block" ? "none" : "block";
+  display.addEventListener("click", (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    optionsBox.style.display = optionsBox.style.display === "block" ? "none" : "block";
   });
 
-  document.addEventListener("click", (e) => {
-    if (!wrapper.contains(e.target)) {
-      optionsBox.style.display = "none";
-    }
+  document.addEventListener("click", () => {
+    optionsBox.style.display = "none";
   });
 
   wrapper.appendChild(display);
   wrapper.appendChild(optionsBox);
+
+  // Insertar justo después del select
   original.parentNode.insertBefore(wrapper, original.nextSibling);
 
   rebuildOptions();
 
-  // Si cambian las opciones dinámicamente (como en tu login)
-  const observer = new MutationObserver(() => {
-    rebuildOptions();
-    display.textContent =
-      original.options[original.selectedIndex]?.text || "Seleccionar";
-  });
-
-  observer.observe(original, { childList: true });
+  // Si tu app rellena opciones después (login, cambio cliente, etc)
+  const obs = new MutationObserver(() => rebuildOptions());
+  obs.observe(original, { childList: true });
 }
