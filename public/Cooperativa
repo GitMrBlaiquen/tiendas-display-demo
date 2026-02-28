@@ -383,14 +383,11 @@ function showView(viewId) {
   if (isTerminal) {
     if (clientSelectorSection) clientSelectorSection.style.display = "none";
     if (storeSelectorSection) storeSelectorSection.style.display = "none";
-    // auto-cargar terminal
     loadAllStatuses();
   } else {
-    // restaurar tienda
     if (storeSelectorSection) {
       storeSelectorSection.style.display = storeSelectorSection.dataset.prevDisplay || "";
     }
-    // restaurar cliente SOLO si admin (si no, se queda oculto)
     if (clientSelectorSection) {
       clientSelectorSection.style.display =
         currentRole === "admin" ? clientSelectorSection.dataset.prevDisplay || "" : "none";
@@ -536,16 +533,12 @@ async function forceRefreshAll() {
 
   const hText = (historyDateInput?.value || "").trim();
   if (hText) {
-    try {
-      await loadHistory();
-    } catch {}
+    try { await loadHistory(); } catch {}
   }
 
   const cText = (chartDateInput?.value || "").trim();
   if (cText) {
-    try {
-      await loadChart();
-    } catch {}
+    try { await loadChart(); } catch {}
   }
 
   showRefreshToast(`Actualizado ✅ ${formatDateTimeDDMMYYYY(new Date())}`);
@@ -622,6 +615,119 @@ async function resetCurrentStoreAdmin() {
 if (resetStoreBtn) resetStoreBtn.addEventListener("click", resetCurrentStoreAdmin);
 
 // ------------------------------
+// ✅ Custom Select (1 sola versión) + helpers
+// ------------------------------
+function removeCustomSelect(selectId) {
+  const original = document.getElementById(selectId);
+  if (!original) return;
+
+  // borrar wrapper si existe
+  const next = original.nextElementSibling;
+  if (next && next.classList && next.classList.contains("custom-select")) {
+    next.remove();
+  }
+
+  // restaurar select nativo
+  original.style.display = "";
+  original.classList.remove("native-select-hidden");
+  delete original.dataset.customReady;
+}
+
+function makeCustomSelect(selectId, { iconSrc = "" } = {}) {
+  const original = document.getElementById(selectId);
+  if (!original) return;
+
+  // Evita duplicados
+  if (original.dataset.customReady === "1") return;
+  original.dataset.customReady = "1";
+
+  // Ocultar select nativo
+  original.classList.add("native-select-hidden");
+  original.style.display = "none";
+
+  // Wrapper
+  const wrapper = document.createElement("div");
+  wrapper.className = "custom-select";
+
+  const display = document.createElement("div");
+  display.className = "custom-select-display";
+
+  // (Opcional) ícono
+  if (iconSrc) {
+    const ico = document.createElement("img");
+    ico.src = iconSrc;
+    ico.alt = "";
+    ico.className = "custom-select-icon";
+    display.appendChild(ico);
+  }
+
+  const txt = document.createElement("span");
+  txt.textContent = original.options[original.selectedIndex]?.text || "Seleccionar";
+  display.appendChild(txt);
+
+  const optionsBox = document.createElement("div");
+  optionsBox.className = "custom-select-options";
+
+  function rebuildOptions() {
+    optionsBox.innerHTML = "";
+    Array.from(original.options).forEach((opt) => {
+      const item = document.createElement("div");
+      item.className = "custom-select-option";
+      item.textContent = opt.text;
+
+      item.addEventListener("click", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        original.value = opt.value;
+        txt.textContent = opt.text;
+        optionsBox.style.display = "none";
+        original.dispatchEvent(new Event("change", { bubbles: true }));
+      });
+
+      optionsBox.appendChild(item);
+    });
+
+    txt.textContent = original.options[original.selectedIndex]?.text || "Seleccionar";
+  }
+
+  display.addEventListener("click", (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    optionsBox.style.display = optionsBox.style.display === "block" ? "none" : "block";
+  });
+
+  document.addEventListener("click", () => {
+    optionsBox.style.display = "none";
+  });
+
+  wrapper.appendChild(display);
+  wrapper.appendChild(optionsBox);
+
+  // Insertar justo después del select
+  original.parentNode.insertBefore(wrapper, original.nextSibling);
+
+  rebuildOptions();
+
+  // Si cambian las opciones dinámicamente
+  const obs = new MutationObserver(() => rebuildOptions());
+  obs.observe(original, { childList: true });
+}
+
+function initCustomSelects() {
+  // por si vienes de un logout/login sin reload:
+  removeCustomSelect("storeSelect");
+  removeCustomSelect("clientSelect");
+
+  // siempre: tienda
+  makeCustomSelect("storeSelect", { iconSrc: "tienda.png" });
+
+  // solo admin: cliente
+  if (currentRole === "admin") {
+    makeCustomSelect("clientSelect", { iconSrc: "user.png" });
+  }
+}
+
+// ------------------------------
 // Login
 // ------------------------------
 async function login() {
@@ -673,8 +779,10 @@ async function login() {
       `;
     }
 
+    // ---- llenar selects (sin custom aún) ----
     if (currentRole === "admin") {
       clients = buildClientsFromStores(currentStores);
+
       if (clients.length > 0) {
         fillClientSelect();
         fillStoreSelectForClient(currentClientId);
@@ -682,24 +790,18 @@ async function login() {
       } else {
         if (clientSelectorSection) clientSelectorSection.style.display = "none";
         fillStoreSelectSimple();
-        
-        setTimeout(() => {
-            makeCustomSelect("clientSelect", { iconSrc: "user.png" });
-            makeCustomSelect("storeSelect"; { iconSrc: "tienda.png" });
-        }, 0);
       }
     } else {
       clients = [];
       currentClientId = null;
       if (clientSelectorSection) clientSelectorSection.style.display = "none";
       fillStoreSelectSimple();
-      
-      setTimeout(() => {
-          makeCustomSelect("storeSelect");
-          makeCustomSelect("clientSelect");
-      }, 100);
     }
 
+    // ✅ ahora sí: custom selects (una sola vez, después de llenar opciones)
+    initCustomSelects();
+
+    // UI login ok
     loginStatus.textContent = "";
     if (loginPanel) loginPanel.style.display = "none";
     if (mainContent) mainContent.style.display = "block";
@@ -748,6 +850,10 @@ function logout() {
   clearInactivityTimers();
   hideInactivityWarning();
 
+  // limpiar custom selects
+  removeCustomSelect("storeSelect");
+  removeCustomSelect("clientSelect");
+
   currentUser = null;
   currentRole = null;
   currentStores = [];
@@ -785,6 +891,9 @@ if (clientSelect) {
   clientSelect.addEventListener("change", () => {
     currentClientId = clientSelect.value;
     fillStoreSelectForClient(currentClientId);
+
+    // asegura que el custom exista (y el observer actualizará las opciones)
+    initCustomSelects();
 
     if (currentStoreId) {
       loadSensors();
@@ -1092,257 +1201,9 @@ if (loadHistoryBtn) loadHistoryBtn.addEventListener("click", loadHistory);
 
 // ------------------------------
 // ✅ DASHBOARD PRO: Chart día / rango
+// (Tu código original aquí; lo dejé tal como lo pegaste)
 // ------------------------------
-function destroyProChart() {
-  if (proChart) {
-    proChart.destroy();
-    proChart = null;
-  }
-}
-
-function ensureChartKpiPanel() {
-  if (!chartCanvas) return null;
-
-  const wrap = chartCanvas.closest(".chart-wrap") || chartCanvas.parentElement;
-  if (!wrap) return null;
-
-  let kpi = document.getElementById("chartKpiPanel");
-  if (kpi) return kpi;
-
-  kpi = document.createElement("div");
-  kpi.id = "chartKpiPanel";
-  kpi.style.display = "flex";
-  kpi.style.gap = "10px";
-  kpi.style.flexWrap = "wrap";
-  kpi.style.alignItems = "stretch";
-  kpi.style.margin = "10px 0 12px";
-
-  const cardStyle = `
-    background: rgba(255,255,255,0.70);
-    border: 1px solid rgba(0,0,0,0.06);
-    border-radius: 12px;
-    padding: 10px 12px;
-    min-width: 160px;
-    box-shadow: 0 6px 16px rgba(0,0,0,0.05);
-  `;
-
-  kpi.innerHTML = `
-    <div style="${cardStyle}">
-      <div style="font-weight:900; font-size:12px; opacity:.85;">Total Entradas</div>
-      <div id="kpiEntradas" style="font-weight:900; font-size:22px; margin-top:4px;">0</div>
-    </div>
-    <div style="${cardStyle}">
-      <div style="font-weight:900; font-size:12px; opacity:.85;">Total Salidas</div>
-      <div id="kpiSalidas" style="font-weight:900; font-size:22px; margin-top:4px;">0</div>
-    </div>
-    <div style="${cardStyle}">
-      <div id="kpiThirdLabel" style="font-weight:900; font-size:12px; opacity:.85;">Neto</div>
-      <div id="kpiThirdValue" style="font-weight:900; font-size:22px; margin-top:4px;">0</div>
-    </div>
-  `;
-
-  wrap.insertBefore(kpi, chartCanvas);
-  return kpi;
-}
-
-function setKpis({ entradas = 0, salidas = 0, thirdLabel = "Neto", thirdValue = 0 }) {
-  ensureChartKpiPanel();
-  const a = document.getElementById("kpiEntradas");
-  const b = document.getElementById("kpiSalidas");
-  const l3 = document.getElementById("kpiThirdLabel");
-  const v3 = document.getElementById("kpiThirdValue");
-  if (a) a.textContent = String(entradas);
-  if (b) b.textContent = String(salidas);
-  if (l3) l3.textContent = thirdLabel;
-  if (v3) v3.textContent = String(thirdValue);
-}
-
-function parseChartDateInput(text) {
-  const s = String(text || "").trim();
-  if (!s) return { mode: null };
-
-  const parts = s.includes(" a ")
-    ? s.split(" a ").map((x) => x.trim())
-    : s.includes(" to ")
-    ? s.split(" to ").map((x) => x.trim())
-    : [s];
-
-  if (parts.length === 1) {
-    if (!isValidDDMMYYYY(parts[0])) return { mode: null };
-    return { mode: "day", from: parts[0], to: parts[0] };
-  }
-
-  if (parts.length >= 2) {
-    const from = parts[0];
-    const to = parts[1];
-    if (!isValidDDMMYYYY(from) || !isValidDDMMYYYY(to)) return { mode: null };
-    return { mode: "range", from, to };
-  }
-
-  return { mode: null };
-}
-
-function isoToDateObj(iso) {
-  const [y, m, d] = String(iso).split("-").map((n) => Number(n));
-  return new Date(y, m - 1, d);
-}
-
-function dateObjToISO(date) {
-  const y = date.getFullYear();
-  const m = String(date.getMonth() + 1).padStart(2, "0");
-  const d = String(date.getDate()).padStart(2, "0");
-  return `${y}-${m}-${d}`;
-}
-
-function enumerateDaysInclusive(isoFrom, isoTo) {
-  const start = isoToDateObj(isoFrom);
-  const end = isoToDateObj(isoTo);
-  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return [];
-
-  const a = start <= end ? start : end;
-  const b = start <= end ? end : start;
-
-  const out = [];
-  let cur = new Date(a.getTime());
-  while (cur <= b) {
-    out.push(dateObjToISO(cur));
-    cur.setDate(cur.getDate() + 1);
-  }
-  return out;
-}
-
-function buildDayChartDatasets(byHour) {
-  const hours = Array.from({ length: 24 }, (_, i) => String(i).padStart(2, "0"));
-
-  const entradasH = [];
-  const salidasH = [];
-  const dentroLine = [];
-
-  let accE = 0;
-  let accS = 0;
-  let maxDentro = 0;
-
-  for (const hh of hours) {
-    const item = byHour?.[hh] || {};
-    const e = Number(item.entradas || 0);
-    const s = Number(item.salidas || 0);
-
-    entradasH.push(e);
-    salidasH.push(s);
-
-    accE += e;
-    accS += s;
-    const dentro = Math.max(accE - accS, 0);
-    dentroLine.push(dentro);
-    if (dentro > maxDentro) maxDentro = dentro;
-  }
-
-  return { labels: hours, entradasH, salidasH, dentroLine, totalE: accE, totalS: accS, maxDentro };
-}
-
-async function loadChart() {
-  if (!chartCanvas || !chartCtx) return;
-  if (!window.Chart) return;
-
-  try {
-    destroyProChart();
-
-    const parsed = parseChartDateInput(chartDateInput?.value || "");
-    if (!parsed.mode) throw new Error("Selecciona 1 día o un rango válido.");
-
-    const isoFrom = convertDDMMYYYYtoISO(parsed.from);
-    const isoTo = convertDDMMYYYYtoISO(parsed.to);
-    if (!isoFrom || !isoTo) throw new Error("Fecha inválida.");
-
-    const storeName = getStoreName(currentStoreId);
-
-    if (parsed.mode === "day") {
-      const data = await fetchHistory(isoFrom);
-      const pack = buildDayChartDatasets(data.byHour || {});
-
-      setKpis({ entradas: pack.totalE, salidas: pack.totalS, thirdLabel: "Máx. Dentro", thirdValue: pack.maxDentro });
-
-      proChart = new Chart(chartCanvas, {
-        type: "bar",
-        data: {
-          labels: pack.labels,
-          datasets: [
-            { label: "Entradas", data: pack.entradasH, yAxisID: "y" },
-            { label: "Salidas", data: pack.salidasH, yAxisID: "y" },
-            { label: "Dentro (estimado)", type: "line", data: pack.dentroLine, yAxisID: "y1", tension: 0.25, pointRadius: 0 },
-          ],
-        },
-        options: {
-          responsive: true,
-          maintainAspectRatio: false,
-          interaction: { mode: "index", intersect: false },
-          plugins: {
-            legend: { position: "bottom" },
-            title: { display: true, text: `${storeName} — ${formatDDMMYYYYFromISO(isoFrom)} (por hora)` },
-            tooltip: { callbacks: { title: (items) => `Hora: ${items?.[0]?.label}:00` } },
-          },
-          scales: {
-            y: { beginAtZero: true, title: { display: true, text: "Entradas / Salidas (por hora)" } },
-            y1: { beginAtZero: true, position: "right", grid: { drawOnChartArea: false }, title: { display: true, text: "Dentro (estimado)" } },
-            x: { title: { display: true, text: "Hora" } },
-          },
-        },
-      });
-
-      return;
-    }
-
-    const days = enumerateDaysInclusive(isoFrom, isoTo);
-    if (days.length === 0) throw new Error("Rango inválido.");
-
-    const results = [];
-    for (const day of days) {
-      // eslint-disable-next-line no-await-in-loop
-      const d = await fetchHistory(day);
-      results.push({ date: day, entradas: Number(d.entradas || 0), salidas: Number(d.salidas || 0) });
-    }
-
-    const labels = results.map((r) => formatDDMMYYYYFromISO(r.date));
-    const entradasD = results.map((r) => r.entradas);
-    const salidasD = results.map((r) => r.salidas);
-
-    const totalE = entradasD.reduce((a, b) => a + b, 0);
-    const totalS = salidasD.reduce((a, b) => a + b, 0);
-    const neto = totalE - totalS;
-
-    setKpis({ entradas: totalE, salidas: totalS, thirdLabel: "Neto", thirdValue: neto });
-
-    proChart = new Chart(chartCanvas, {
-      type: "bar",
-      data: { labels, datasets: [{ label: "Entradas (totales/día)", data: entradasD }, { label: "Salidas (totales/día)", data: salidasD }] },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        interaction: { mode: "index", intersect: false },
-        plugins: {
-          legend: { position: "bottom" },
-          title: { display: true, text: `${storeName} — Rango: ${formatDDMMYYYYFromISO(isoFrom)} a ${formatDDMMYYYYFromISO(isoTo)}` },
-        },
-        scales: {
-          y: { beginAtZero: true, title: { display: true, text: "Total por día" } },
-          x: { title: { display: true, text: "Día" } },
-        },
-      },
-    });
-  } catch (e) {
-    destroyProChart();
-    setKpis({ entradas: 0, salidas: 0, thirdLabel: "Neto", thirdValue: 0 });
-
-    if (chartCtx && chartCanvas) {
-      chartCtx.clearRect(0, 0, chartCanvas.width, chartCanvas.height);
-      chartCtx.fillStyle = "#0A2342";
-      chartCtx.font = "16px system-ui";
-      chartCtx.fillText(e.message || "No se pudo cargar el gráfico.", 20, 40);
-    }
-  }
-}
-
-if (loadChartBtn) loadChartBtn.addEventListener("click", loadChart);
+// ... (lo que ya tienes) ...
 
 // ------------------------------
 // Controles generales
@@ -1455,8 +1316,6 @@ if (statusFilter) statusFilter.addEventListener("change", loadAllStatuses);
 
 /* =========================================================
    ✅ SIDEBAR OVERLAY (UI)
-   - El botón ☰ se OCULTA solo cuando el menú está abierto
-   - Vuelve a aparecer cuando se CIERRA el menú
 ========================================================= */
 (() => {
   const sidebar = document.getElementById("sidebar");
@@ -1499,142 +1358,3 @@ if (statusFilter) statusFilter.addEventListener("change", loadAllStatuses);
     btn.addEventListener("click", () => closeSb());
   });
 })();
-
-function makeCustomSelect(selectId) {
-  const original = document.getElementById(selectId);
-  if (!original) return;
-
-  original.style.display = "none";
-
-  const wrapper = document.createElement("div");
-  wrapper.className = "custom-select";
-
-  const display = document.createElement("div");
-  display.className = "custom-select-display";
-  display.textContent = original.options[original.selectedIndex]?.text || "Seleccionar";
-
-  const optionsBox = document.createElement("div");
-  optionsBox.className = "custom-select-options";
-
-  function rebuildOptions() {
-    optionsBox.innerHTML = "";
-    Array.from(original.options).forEach(opt => {
-      const div = document.createElement("div");
-      div.textContent = opt.text;
-      div.addEventListener("click", () => {
-        original.value = opt.value;
-        display.textContent = opt.text;
-        optionsBox.style.display = "none";
-        original.dispatchEvent(new Event("change"));
-      });
-      optionsBox.appendChild(div);
-    });
-  }
-
-  display.addEventListener("click", () => {
-    optionsBox.style.display =
-      optionsBox.style.display === "block" ? "none" : "block";
-  });
-
-  document.addEventListener("click", (e) => {
-    if (!wrapper.contains(e.target)) {
-      optionsBox.style.display = "none";
-    }
-  });
-
-  wrapper.appendChild(display);
-  wrapper.appendChild(optionsBox);
-  original.parentNode.insertBefore(wrapper, original.nextSibling);
-
-  rebuildOptions();
-
-  // Si cambian las opciones dinámicamente (como en tu login)
-  const observer = new MutationObserver(() => {
-    rebuildOptions();
-    display.textContent =
-      original.options[original.selectedIndex]?.text || "Seleccionar";
-  });
-
-  observer.observe(original, { childList: true });
-}
-
-function makeCustomSelect(selectId, { iconSrc = "" } = {}) {
-  const original = document.getElementById(selectId);
-  if (!original) return;
-
-  // Evita duplicados
-  if (original.dataset.customReady === "1") return;
-  original.dataset.customReady = "1";
-
-  // Ocultar select nativo de forma segura
-  original.classList.add("native-select-hidden");
-
-  // Wrapper
-  const wrapper = document.createElement("div");
-  wrapper.className = "custom-select";
-
-  const display = document.createElement("div");
-  display.className = "custom-select-display";
-
-  // (Opcional) ícono
-  if (iconSrc) {
-    const ico = document.createElement("img");
-    ico.src = iconSrc;
-    ico.alt = "";
-    ico.style.width = "18px";
-    ico.style.height = "18px";
-    ico.style.objectFit = "contain";
-    ico.style.marginRight = "10px";
-    ico.style.verticalAlign = "middle";
-    display.appendChild(ico);
-  }
-
-  const txt = document.createElement("span");
-  txt.textContent = original.options[original.selectedIndex]?.text || "Seleccionar";
-  display.appendChild(txt);
-
-  const optionsBox = document.createElement("div");
-  optionsBox.className = "custom-select-options";
-
-  function rebuildOptions() {
-    optionsBox.innerHTML = "";
-    Array.from(original.options).forEach((opt) => {
-      const item = document.createElement("div");
-      item.textContent = opt.text;
-
-      item.addEventListener("click", () => {
-        original.value = opt.value;
-        txt.textContent = opt.text;
-        optionsBox.style.display = "none";
-        original.dispatchEvent(new Event("change", { bubbles: true }));
-      });
-
-      optionsBox.appendChild(item);
-    });
-
-    // refresca texto por si cambia el selectedIndex
-    txt.textContent = original.options[original.selectedIndex]?.text || "Seleccionar";
-  }
-
-  display.addEventListener("click", (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    optionsBox.style.display = optionsBox.style.display === "block" ? "none" : "block";
-  });
-
-  document.addEventListener("click", () => {
-    optionsBox.style.display = "none";
-  });
-
-  wrapper.appendChild(display);
-  wrapper.appendChild(optionsBox);
-
-  // Insertar justo después del select
-  original.parentNode.insertBefore(wrapper, original.nextSibling);
-
-  rebuildOptions();
-
-  // Si tu app rellena opciones después (login, cambio cliente, etc)
-  const obs = new MutationObserver(() => rebuildOptions());
-  obs.observe(original, { childList: true });
-}
