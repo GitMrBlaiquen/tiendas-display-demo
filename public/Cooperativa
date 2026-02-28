@@ -1,0 +1,104 @@
+/* =========================================================
+   ✅ SELECTORES MODERNOS (cliente / tienda)
+   - No toca JS, solo look & feel
+========================================================= */
+
+/* contenedor (cliente y tienda) */
+.client-selector,
+.store-selector{
+  background: rgba(255,255,255,0.55);
+  border: 1px solid rgba(0,0,0,0.06);
+  border-left: 6px solid #1C6DD0;
+  border-radius: 16px;
+  padding: 14px 16px;
+  box-shadow: 0 10px 26px rgba(10,35,66,0.10);
+  backdrop-filter: blur(10px);
+}
+
+/* títulos */
+.client-selector h2,
+.store-selector h2{
+  margin: 0 0 10px;
+  font-size: 1.05rem;
+  font-weight: 950;
+  letter-spacing: .2px;
+  color: #0A2342;
+}
+
+/* fila label + select */
+.client-selector label,
+.store-selector label{
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  font-weight: 900;
+  color: rgba(10,35,66,0.85);
+}
+
+/* base de inputs/select */
+.client-selector select,
+.store-selector select,
+input[type="date"],
+input[type="text"]{
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+
+  padding: 10px 42px 10px 12px;  /* espacio para la flecha */
+  border-radius: 14px;
+  border: 1px solid rgba(28,109,208,0.25);
+  background: rgba(255,255,255,0.85);
+  color: #0A2342;
+  font-weight: 900;
+  min-width: 220px;
+
+  box-shadow: 0 8px 18px rgba(10,35,66,0.08);
+  transition: 0.18s ease;
+  outline: none;
+}
+
+/* hover/focus */
+.client-selector select:hover,
+.store-selector select:hover{
+  transform: translateY(-1px);
+  border-color: rgba(28,109,208,0.45);
+}
+
+.client-selector select:focus,
+.store-selector select:focus{
+  border-color: rgba(28,109,208,0.75);
+  box-shadow: 0 0 0 4px rgba(28,109,208,0.15), 0 10px 22px rgba(10,35,66,0.10);
+}
+
+/* flecha custom (dropdown) */
+.client-selector label,
+.store-selector label{
+  position: relative;
+}
+
+.client-selector label::after,
+.store-selector label::after{
+  content: "▾";
+  position: absolute;
+  right: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  pointer-events: none;
+  font-size: 16px;
+  font-weight: 950;
+  color: rgba(10,35,66,0.55);
+}
+
+/* en móvil: que use ancho completo */
+@media (max-width: 680px){
+  .client-selector select,
+  .store-selector select{
+    width: 100%;
+    min-width: 0;
+  }
+  .client-selector label::after,
+  .store-selector label::after{
+    right: 16px;
+  }
+}
