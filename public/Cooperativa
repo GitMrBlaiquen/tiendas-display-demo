@@ -1,154 +1,90 @@
-// ------------------------------
-// ✅ Custom Select (1 sola versión) + helpers
-// - z-index correcto (cliente no queda debajo)
-// - solo 1 abierto a la vez
-// ------------------------------
-function removeCustomSelect(selectId) {
-  const original = document.getElementById(selectId);
-  if (!original) return;
+/* Oculta el select nativo sin romper layout */
+.native-select-hidden { display: none !important; }
 
-  const next = original.nextElementSibling;
-  if (next && next.classList && next.classList.contains("custom-select")) {
-    next.remove();
-  }
+/* Base */
+.custom-select { position: relative; z-index: 1; width: 100%; max-width: 520px; }
 
-  original.style.display = "";
-  original.classList.remove("native-select-hidden");
-  delete original.dataset.customReady;
+/* Cuando está abierto: que suba por encima de todo */
+.custom-select.is-open { z-index: 999999; }
+
+/* Botón principal */
+.custom-select-display{
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border: 1px solid rgba(0,0,0,.10);
+  border-radius: 14px;
+  padding: 12px 14px;
+  background: rgba(255,255,255,.70);
+  cursor: pointer;
 }
 
-function closeAllCustomSelects() {
-  document.querySelectorAll(".custom-select").forEach((cs) => cs.classList.remove("is-open"));
-  document
-    .querySelectorAll(".custom-select .custom-select-options")
-    .forEach((box) => (box.style.display = "none"));
+.custom-select-icon{
+  width: 18px;
+  height: 18px;
+  object-fit: contain;
+  flex: 0 0 auto;
 }
 
-function makeCustomSelect(selectId, { iconSrc = "" } = {}) {
-  const original = document.getElementById(selectId);
-  if (!original) return;
-
-  // Evita duplicados
-  if (original.dataset.customReady === "1") return;
-  original.dataset.customReady = "1";
-
-  // Ocultar select nativo
-  original.classList.add("native-select-hidden");
-  original.style.display = "none";
-
-  // Wrapper
-  const wrapper = document.createElement("div");
-  wrapper.className = "custom-select";
-
-  const display = document.createElement("button");
-  display.type = "button";
-  display.className = "custom-select-display";
-
-  // (Opcional) ícono
-  if (iconSrc) {
-    const ico = document.createElement("img");
-    ico.src = iconSrc;
-    ico.alt = "";
-    ico.className = "custom-select-icon";
-    display.appendChild(ico);
-  }
-
-  const txt = document.createElement("span");
-  txt.className = "custom-select-text";
-  txt.textContent = original.options[original.selectedIndex]?.text || "Seleccionar";
-  display.appendChild(txt);
-
-  // Flechita (▼)
-  const arrow = document.createElement("span");
-  arrow.className = "custom-select-arrow";
-  arrow.textContent = "▾";
-  display.appendChild(arrow);
-
-  const optionsBox = document.createElement("div");
-  optionsBox.className = "custom-select-options";
-  optionsBox.style.display = "none";
-
-  function syncText() {
-    txt.textContent = original.options[original.selectedIndex]?.text || "Seleccionar";
-  }
-
-  function rebuildOptions() {
-    optionsBox.innerHTML = "";
-
-    Array.from(original.options).forEach((opt) => {
-      const item = document.createElement("button");
-      item.type = "button";
-      item.className = "custom-select-option";
-      item.textContent = opt.text;
-
-      item.addEventListener("click", (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-
-        original.value = opt.value;
-        syncText();
-
-        // cerrar
-        optionsBox.style.display = "none";
-        wrapper.classList.remove("is-open");
-
-        original.dispatchEvent(new Event("change", { bubbles: true }));
-      });
-
-      optionsBox.appendChild(item);
-    });
-
-    syncText();
-  }
-
-  display.addEventListener("click", (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-
-    const willOpen = optionsBox.style.display !== "block";
-
-    // cerrar todos los otros
-    closeAllCustomSelects();
-
-    // abrir/cerrar este
-    optionsBox.style.display = willOpen ? "block" : "none";
-    wrapper.classList.toggle("is-open", willOpen);
-  });
-
-  // click fuera: cerrar
-  document.addEventListener("click", () => {
-    optionsBox.style.display = "none";
-    wrapper.classList.remove("is-open");
-  });
-
-  wrapper.appendChild(display);
-  wrapper.appendChild(optionsBox);
-
-  // Insertar justo después del select
-  original.parentNode.insertBefore(wrapper, original.nextSibling);
-
-  rebuildOptions();
-
-  // Si cambian las opciones dinámicamente
-  const obs = new MutationObserver(() => rebuildOptions());
-  obs.observe(original, { childList: true });
-
-  // Si el select cambia por código (por si acaso)
-  original.addEventListener("change", () => {
-    syncText();
-  });
+.custom-select-text{
+  flex: 1 1 auto;
+  text-align: left;
+  font-weight: 700;
+  color: #0A2342;
 }
 
-function initCustomSelects() {
-  // por si vienes de un logout/login sin reload:
-  removeCustomSelect("storeSelect");
-  removeCustomSelect("clientSelect");
+/* Flechita */
+.custom-select-arrow{
+  flex: 0 0 auto;
+  opacity: .75;
+  transition: transform .18s ease, opacity .18s ease;
+}
 
-  // siempre: tienda
-  makeCustomSelect("storeSelect", { iconSrc: "tienda.png" });
+/* Flecha gira cuando abre */
+.custom-select.is-open .custom-select-arrow{
+  transform: rotate(180deg);
+  opacity: 1;
+}
 
-  // solo admin: cliente
-  if (currentRole === "admin") {
-    makeCustomSelect("clientSelect", { iconSrc: "user.png" });
-  }
+/* Dropdown */
+.custom-select-options{
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: calc(100% + 8px);
+  background: rgba(255,255,255,.98);
+  border: 1px solid rgba(0,0,0,.10);
+  border-radius: 14px;
+  box-shadow: 0 18px 40px rgba(0,0,0,.15);
+  overflow: hidden;
+
+  /* animación */
+  opacity: 0;
+  transform: translateY(-6px);
+  pointer-events: none;
+  transition: opacity .16s ease, transform .16s ease;
+}
+
+/* cuando abre */
+.custom-select.is-open .custom-select-options{
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: auto;
+}
+
+/* Opciones */
+.custom-select-option{
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  border: 0;
+  padding: 12px 14px;
+  cursor: pointer;
+  font-weight: 600;
+  color: #0A2342;
+}
+
+.custom-select-option:hover{
+  background: rgba(10,35,66,.06);
 }
