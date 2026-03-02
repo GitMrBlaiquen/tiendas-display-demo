@@ -31,7 +31,7 @@
   border: 1px solid rgba(28,109,208,0.25);
 
   background: linear-gradient(180deg,#1f63d6,#0f49b5);
-  color: white;
+  color: #fff;
 
   font-weight: 800;
   cursor: pointer;
@@ -54,7 +54,8 @@
   flex: 1;
   text-align: left;
   font-weight: 800;
-  color: white;
+  color: #fff;
+  text-shadow: 0 1px 0 rgba(0,0,0,-25);
 }
 
 /* Flecha */
@@ -76,10 +77,9 @@
   z-index: 2147483647;
 
   background: #0A2342;     /* 🔵 Fondo azul oscuro */
-  color: white;
 
   border-radius: 16px;
-  border: 1px solid rgba(255,255,255,.15);
+  border: 1px solid rgba(255,255,255,.18);
   box-shadow: 0 20px 45px rgba(0,0,0,.35);
 
   max-height: 280px;
@@ -106,12 +106,12 @@
   padding: 12px 16px;
   cursor: pointer;
   font-weight: 700;
-  color: white;
+  color: #0A2342;
   transition: 0.15s ease;
 }
 
 .custom-select-option:hover{
-  background: rgba(255,255,255,.15);
+  background: rgba(28,109,208,.12);
 }
 
 /* Opción seleccionada */
