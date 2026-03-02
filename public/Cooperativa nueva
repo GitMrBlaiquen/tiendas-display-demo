@@ -1,243 +1,41 @@
 /* =========================================================
-   ✅ SELECTORES MODERNOS (cliente / tienda) + PREMIUM GLASS
-   - Fondo blanco + letras negras
-   - Apple-like blur + glass
-   - Sin reglas duplicadas
+   🔧 FIX FINAL: FORZAR blanco + texto oscuro (CUSTOM SELECT)
+   👉 Pegar AL FINAL del CSS
 ========================================================= */
 
-/* ---------------------------
-   Contenedores de secciones
----------------------------- */
-.client-selector,
-.store-selector{
-  background: rgba(255,255,255,0.70);
-  border: 1px solid rgba(10,35,66,0.10);
-  border-left: 6px solid rgba(28,109,208,0.85);
-  border-radius: 16px;
-  padding: 14px 16px;
-  box-shadow: 0 14px 34px rgba(10,35,66,0.14);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
+/* Botón */
+.custom-select .custom-select-display{
+  background: rgba(255,255,255,0.85) !important;
+  color: #0A2342 !important;
+  border: 1px solid rgba(10,35,66,0.18) !important;
 }
 
-/* Títulos */
-.client-selector h2,
-.store-selector h2{
-  margin: 0 0 10px;
-  font-size: 1.05rem;
-  font-weight: 950;
-  letter-spacing: .2px;
-  color: #0A2342;
+/* Texto dentro del botón */
+.custom-select .custom-select-text{
+  color: #0A2342 !important;
+  font-weight: 900 !important;
 }
 
-/* Label fila */
-.client-selector label,
-.store-selector label{
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  flex-wrap: wrap;
-  font-weight: 900;
-  color: rgba(10,35,66,0.88);
+/* Flecha */
+.custom-select .custom-select-arrow{
+  color: rgba(10,35,66,0.80) !important;
 }
 
-/* Si aún queda algún select nativo visible por error */
-.client-selector select,
-.store-selector select{
-  padding: 10px 12px;
-  border-radius: 14px;
-  border: 1px solid rgba(10,35,66,0.15);
-  background: rgba(255,255,255,0.90);
-  color: #0A2342;
-  font-weight: 800;
-  min-width: 220px;
-  box-shadow: 0 10px 22px rgba(10,35,66,0.10);
-}
-
-/* Responsive */
-@media (max-width: 680px){
-  .client-selector select,
-  .store-selector select{
-    width: 100%;
-    min-width: 0;
-  }
-}
-
-/* ---------------------------
-   Ocultar select nativo seguro
----------------------------- */
-.native-select-hidden{
-  position: absolute !important;
-  opacity: 0 !important;
-  pointer-events: none !important;
-  width: 1px !important;
-  height: 1px !important;
-  margin: 0 !important;
-  padding: 0 !important;
-}
-
-/* =========================================================
-   ✅ CUSTOM SELECT (APPLE-LIKE, fondo blanco, texto negro)
-========================================================= */
-
-.custom-select{
-  position: relative;
-  width: 100%;
-  max-width: 520px;
-  z-index: 1;
-}
-
-/* Cuando abre: sube por encima de todo */
-.custom-select.is-open{ z-index: 999999; }
-
-/* Botón principal */
-.custom-select-display{
-  width: 100%;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-
-  border-radius: 14px;
-  padding: 12px 14px;
-  cursor: pointer;
-  user-select: none;
-
-  /* ✅ Fondo blanco + glass */
-  background: rgba(255,255,255,0.72);
-  border: 1px solid rgba(10,35,66,0.14);
-  box-shadow:
-    0 12px 30px rgba(10,35,66,0.10),
-    inset 0 1px 0 rgba(255,255,255,0.60);
-
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
-
-  transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease;
-}
-
-.custom-select-display:hover{
-  transform: translateY(-1px);
-  border-color: rgba(28,109,208,0.28);
-  box-shadow:
-    0 16px 36px rgba(10,35,66,0.14),
-    inset 0 1px 0 rgba(255,255,255,0.62);
-}
-
-/* Icono */
-.custom-select-icon{
-  width: 18px;
-  height: 18px;
-  object-fit: contain;
-  flex: 0 0 auto;
-  opacity: .92;
-  filter: drop-shadow(0 1px 1px rgba(0,0,0,.12));
-}
-
-/* Texto */
-.custom-select-text{
-  flex: 1 1 auto;
-  text-align: left;
-  font-weight: 850;
-  color: #0A2342; /* ✅ negro/azul oscuro */
-}
-
-/* Flechita */
-.custom-select-arrow{
-  flex: 0 0 auto;
-  opacity: .70;
-  color: rgba(10,35,66,.72);
-  transition: transform .18s ease, opacity .18s ease;
-}
-
-/* Flecha gira cuando abre */
-.custom-select.is-open .custom-select-arrow{
-  transform: rotate(180deg);
-  opacity: 1;
-}
-
-/* =========================================================
-   ✅ Dropdown: soporta 2 modos
-   1) .custom-select-options (absoluto dentro del wrapper)
-   2) .custom-select-portal  (FIXED en body)
-========================================================= */
-
-/* Base dropdown (look) */
-.custom-select-options,
-.custom-select-portal{
-  background: rgba(255,255,255,0.86); /* ✅ fondo blanco glass */
-  border: 1px solid rgba(10,35,66,0.14);
-  border-radius: 14px;
-  box-shadow: 0 22px 60px rgba(10,35,66,0.18);
-  backdrop-filter: blur(18px);
-  -webkit-backdrop-filter: blur(18px);
-
-  max-height: 280px;
-  overflow-y: auto;
-
-  /* animación */
-  opacity: 0;
-  transform: translateY(-6px);
-  pointer-events: none;
-  transition: opacity .16s ease, transform .16s ease;
-
-  z-index: 2147483647;
-}
-
-/* Modo normal (si lo usas) */
+/* Dropdown (portal o normal) */
+.custom-select-portal,
 .custom-select-options{
-  position: absolute;
-  left: 0;
-  right: 0;
-  top: calc(100% + 8px);
-}
-
-/* Modo portal (el que tú estás usando ahora) */
-.custom-select-portal{
-  position: fixed;  /* JS lo posiciona con left/top/width */
-}
-
-/* Cuando abre (para portal: JS agrega .is-open, para normal: wrapper .is-open) */
-.custom-select.is-open .custom-select-options{
-  opacity: 1;
-  transform: translateY(0);
-  pointer-events: auto;
-}
-
-.custom-select-portal.is-open{
-  opacity: 1;
-  transform: translateY(0);
-  pointer-events: auto;
+  background: rgba(255,255,255,0.92) !important;
+  border: 1px solid rgba(10,35,66,0.18) !important;
 }
 
 /* Opciones */
 .custom-select-option{
-  width: 100%;
-  text-align: left;
-  background: transparent;
-  border: 0;
-  padding: 12px 14px;
-  cursor: pointer;
-
-  font-weight: 800;
-  color: #0A2342; /* ✅ letras negras */
+  color: #0A2342 !important;
+  font-weight: 800 !important;
 }
 
-/* Separadores suaves */
-.custom-select-option + .custom-select-option{
-  border-top: 1px solid rgba(10,35,66,0.08);
-}
-
-/* Hover con contraste */
+/* Hover con contraste (sin azul sólido) */
 .custom-select-option:hover{
-  background: rgba(28,109,208,0.12);
-}
-
-/* Opción “activa” si luego decides marcarla en JS (opcional) */
-.custom-select-option.is-active{
-  background: rgba(28,109,208,0.18);
-}
-
-/* Mobile: full width */
-@media (max-width: 680px){
-  .custom-select{ max-width: 100%; }
+  background: rgba(28,109,208,0.12) !important;
+  color: #0A2342 !important;
 }
