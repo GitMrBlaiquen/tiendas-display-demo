@@ -615,29 +615,44 @@ async function resetCurrentStoreAdmin() {
 if (resetStoreBtn) resetStoreBtn.addEventListener("click", resetCurrentStoreAdmin);
 
 // ------------------------------
-// ✅ Custom Select (1 sola versión) + helpers
-// - z-index correcto (cliente no queda debajo)
+// ✅ Custom Select (REESCRITO)
+// - El dropdown se porta a <body> (no lo tapa nada)
+// - z-index alto + position: fixed
 // - solo 1 abierto a la vez
+// - reposiciona en scroll/resize
 // ------------------------------
+let __customSelectDocCloserReady = false;
+
+function closeAllCustomSelects() {
+  document.querySelectorAll(".custom-select.is-open").forEach((w) => w.classList.remove("is-open"));
+  document.querySelectorAll(".custom-select-portal").forEach((box) => {
+    box.classList.remove("is-open");
+    box.style.display = "none";
+  });
+}
+
 function removeCustomSelect(selectId) {
   const original = document.getElementById(selectId);
   if (!original) return;
 
+  // borrar wrapper si existe
   const next = original.nextElementSibling;
   if (next && next.classList && next.classList.contains("custom-select")) {
     next.remove();
   }
 
+  // borrar portal si existe
+  const portalId = original.dataset.portalId;
+  if (portalId) {
+    const portal = document.getElementById(portalId);
+    if (portal) portal.remove();
+    delete original.dataset.portalId;
+  }
+
+  // restaurar select nativo
   original.style.display = "";
   original.classList.remove("native-select-hidden");
   delete original.dataset.customReady;
-}
-
-function closeAllCustomSelects() {
-  document.querySelectorAll(".custom-select").forEach((cs) => cs.classList.remove("is-open"));
-  document
-    .querySelectorAll(".custom-select .custom-select-options")
-    .forEach((box) => (box.style.display = "none"));
 }
 
 function makeCustomSelect(selectId, { iconSrc = "" } = {}) {
@@ -648,19 +663,29 @@ function makeCustomSelect(selectId, { iconSrc = "" } = {}) {
   if (original.dataset.customReady === "1") return;
   original.dataset.customReady = "1";
 
+  // Cerrar en click afuera (una sola vez global)
+  if (!__customSelectDocCloserReady) {
+    __customSelectDocCloserReady = true;
+    document.addEventListener("click", () => closeAllCustomSelects());
+    window.addEventListener("keydown", (e) => {
+      if (e.key === "Escape") closeAllCustomSelects();
+    });
+  }
+
   // Ocultar select nativo
   original.classList.add("native-select-hidden");
   original.style.display = "none";
 
-  // Wrapper
+  // Wrapper (queda en el layout)
   const wrapper = document.createElement("div");
   wrapper.className = "custom-select";
 
+  // Display (botón)
   const display = document.createElement("button");
   display.type = "button";
   display.className = "custom-select-display";
 
-  // (Opcional) ícono
+  // Icono opcional
   if (iconSrc) {
     const ico = document.createElement("img");
     ico.src = iconSrc;
@@ -674,17 +699,33 @@ function makeCustomSelect(selectId, { iconSrc = "" } = {}) {
   txt.textContent = original.options[original.selectedIndex]?.text || "Seleccionar";
   display.appendChild(txt);
 
-  // Flechita (▼)
+  // Flechita (para animación por CSS)
   const arrow = document.createElement("span");
   arrow.className = "custom-select-arrow";
   arrow.textContent = "▾";
   display.appendChild(arrow);
 
+  // Portal (va al body para no quedar debajo)
+  const portalId = `cs-portal-${selectId}`;
+  original.dataset.portalId = portalId;
+
   const optionsBox = document.createElement("div");
+  optionsBox.id = portalId;
   optionsBox.className = "custom-select-portal";
   optionsBox.style.display = "none";
-  
-  let optionsMounter = false;
+
+  // estilos inline para que funcione aunque no tengas CSS aún
+  optionsBox.style.position = "fixed";
+  optionsBox.style.zIndex = "999999";
+  optionsBox.style.maxHeight = "280px";
+  optionsBox.style.overflow = "auto";
+  optionsBox.style.borderRadius = "12px";
+  optionsBox.style.boxShadow = "0 16px 40px rgba(0,0,0,.18)";
+  optionsBox.style.background = "rgba(255,255,255,.98)";
+  optionsBox.style.border = "1px solid rgba(0,0,0,.08)";
+  optionsBox.style.padding = "6px";
+
+  let optionsMounted = false;
 
   function syncText() {
     txt.textContent = original.options[original.selectedIndex]?.text || "Seleccionar";
@@ -699,6 +740,23 @@ function makeCustomSelect(selectId, { iconSrc = "" } = {}) {
       item.className = "custom-select-option";
       item.textContent = opt.text;
 
+      // estilos inline mínimos (puedes pasarlo a CSS)
+      item.style.display = "block";
+      item.style.width = "100%";
+      item.style.textAlign = "left";
+      item.style.padding = "10px 12px";
+      item.style.border = "0";
+      item.style.background = "transparent";
+      item.style.borderRadius = "10px";
+      item.style.cursor = "pointer";
+
+      item.addEventListener("mouseenter", () => {
+        item.style.background = "rgba(10,35,66,.08)";
+      });
+      item.addEventListener("mouseleave", () => {
+        item.style.background = "transparent";
+      });
+
       item.addEventListener("click", (e) => {
         e.preventDefault();
         e.stopPropagation();
@@ -706,10 +764,7 @@ function makeCustomSelect(selectId, { iconSrc = "" } = {}) {
         original.value = opt.value;
         syncText();
 
-        // cerrar
-        optionsBox.style.display = "none";
-        wrapper.classList.remove("is-open");
-
+        closeAllCustomSelects();
         original.dispatchEvent(new Event("change", { bubbles: true }));
       });
 
@@ -719,42 +774,59 @@ function makeCustomSelect(selectId, { iconSrc = "" } = {}) {
     syncText();
   }
 
+  function repositionIfOpen() {
+    if (optionsBox.style.display !== "block") return;
+
+    const r = display.getBoundingClientRect();
+    const gap = 8;
+
+    optionsBox.style.left = `${Math.round(r.left)}px`;
+    optionsBox.style.top = `${Math.round(r.bottom + gap)}px`;
+    optionsBox.style.width = `${Math.round(r.width)}px`;
+  }
+
+  window.addEventListener("scroll", repositionIfOpen, true);
+  window.addEventListener("resize", repositionIfOpen);
+
   display.addEventListener("click", (e) => {
-  e.preventDefault();
-  e.stopPropagation();
+    e.preventDefault();
+    e.stopPropagation();
 
-  const willOpen = optionsBox.style.display !== "block";
+    const willOpen = optionsBox.style.display !== "block";
 
-  // cerrar otros selects
-  closeAllCustomSelects();
+    closeAllCustomSelects();
 
-  if (!willOpen) {
-    optionsBox.classList.remove("is-open");
-    optionsBox.style.display = "none";
-    wrapper.classList.remove("is-open");
-    return;
-  }
+    if (!willOpen) return;
 
-  // Montar en body si aún no está
-  if (!optionsMounted) {
-    document.body.appendChild(optionsBox);
-    optionsMounted = true;
-  }
+    if (!optionsMounted) {
+      document.body.appendChild(optionsBox);
+      optionsMounted = true;
+    }
 
-  // Posicionar debajo del botón
-  const r = display.getBoundingClientRect();
-  optionsBox.style.left = `${r.left}px`;
-  optionsBox.style.top  = `${r.bottom + 8}px`;
-  optionsBox.style.width = `${r.width}px`;
+    rebuildOptions();
+    repositionIfOpen();
 
-  optionsBox.style.display = "block";
-
-  requestAnimationFrame(() => {
+    optionsBox.style.display = "block";
+    wrapper.classList.add("is-open");
     optionsBox.classList.add("is-open");
   });
 
-  wrapper.classList.add("is-open");
-});
+  // insertar UI
+  wrapper.appendChild(display);
+  original.parentNode.insertBefore(wrapper, original.nextSibling);
+
+  // observer: si cambian las options dinámicamente
+  const obs = new MutationObserver(() => {
+    rebuildOptions();
+    syncText();
+    repositionIfOpen();
+  });
+  obs.observe(original, { childList: true });
+
+  // primer sync
+  rebuildOptions();
+  syncText();
+}
 
 function initCustomSelects() {
   // por si vienes de un logout/login sin reload:
@@ -841,7 +913,7 @@ async function login() {
       fillStoreSelectSimple();
     }
 
-    // ✅ ahora sí: custom selects (una sola vez, después de llenar opciones)
+    // ✅ ahora sí: custom selects
     initCustomSelects();
 
     // UI login ok
@@ -896,6 +968,7 @@ function logout() {
   // limpiar custom selects
   removeCustomSelect("storeSelect");
   removeCustomSelect("clientSelect");
+  closeAllCustomSelects();
 
   currentUser = null;
   currentRole = null;
@@ -914,7 +987,7 @@ function logout() {
 
   destroyDonut();
   hidePinnedPanel();
-  destroyProChart();
+  // destroyProChart(); // si lo tienes más abajo en tu archivo original, déjalo tal cual.
 
   if (loginStatus) loginStatus.textContent = "";
   if (usernameInput) usernameInput.value = "";
@@ -935,7 +1008,7 @@ if (clientSelect) {
     currentClientId = clientSelect.value;
     fillStoreSelectForClient(currentClientId);
 
-    // asegura que el custom exista (y el observer actualizará las opciones)
+    // refresca custom (recrea ambos y el observer se encarga)
     initCustomSelects();
 
     if (currentStoreId) {
