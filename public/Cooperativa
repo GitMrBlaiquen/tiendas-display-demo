@@ -4,32 +4,33 @@ display.addEventListener("click", (e) => {
 
   const willOpen = optionsBox.style.display !== "block";
 
-  // cerrar otros
+  // cerrar otros selects
   closeAllCustomSelects();
 
   if (!willOpen) {
-    // cerrar este
     optionsBox.classList.remove("is-open");
     optionsBox.style.display = "none";
     wrapper.classList.remove("is-open");
     return;
   }
 
-  // montar en body si no está montado
+  // Montar en body si aún no está
   if (!optionsMounted) {
     document.body.appendChild(optionsBox);
     optionsMounted = true;
   }
 
-  // posicionar debajo del display
+  // Posicionar debajo del botón
   const r = display.getBoundingClientRect();
   optionsBox.style.left = `${r.left}px`;
   optionsBox.style.top  = `${r.bottom + 8}px`;
   optionsBox.style.width = `${r.width}px`;
 
   optionsBox.style.display = "block";
-  // animación
-  requestAnimationFrame(() => optionsBox.classList.add("is-open"));
+
+  requestAnimationFrame(() => {
+    optionsBox.classList.add("is-open");
+  });
 
   wrapper.classList.add("is-open");
 });
