@@ -1,231 +1,23 @@
 /* =========================================================
-   ✅ SELECTORES MODERNOS (cliente / tienda)
-   - No toca JS, solo look & feel
+   ✅ CUSTOM SELECT LIMPIO (compatible con portal al body)
 ========================================================= */
 
-/* contenedor (cliente y tienda) */
-.client-selector,
-.store-selector{
-  background: rgba(255,255,255,0.55);
-  border: 1px solid rgba(0,0,0,0.06);
-  border-left: 6px solid #1C6DD0;
-  border-radius: 16px;
-  padding: 14px 16px;
-  box-shadow: 0 10px 26px rgba(10,35,66,0.10);
-  backdrop-filter: blur(10px);
-}
-
-/* títulos */
-.client-selector h2,
-.store-selector h2{
-  margin: 0 0 10px;
-  font-size: 1.05rem;
-  font-weight: 950;
-  letter-spacing: .2px;
-  color: #0A2342;
-}
-
-/* fila label + select */
-.client-selector label,
-.store-selector label{
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  flex-wrap: wrap;
-  font-weight: 900;
-  color: rgba(10,35,66,0.85);
-}
-
-/* base de inputs/select */
-.client-selector select,
-.store-selector select,
-input[type="date"],
-input[type="text"]{
-  -webkit-appearance: none;
-  -moz-appearance: none;
-  appearance: none;
-
-  padding: 10px 42px 10px 12px;  /* espacio para la flecha */
-  border-radius: 14px;
-  border: 1px solid rgba(28,109,208,0.25);
-  background: rgba(255,255,255,0.85);
-  color: #0A2342;
-  font-weight: 900;
-  min-width: 220px;
-
-  box-shadow: 0 8px 18px rgba(10,35,66,0.08);
-  transition: 0.18s ease;
-  outline: none;
-}
-
-/* hover/focus */
-.client-selector select:hover,
-.store-selector select:hover{
-  transform: translateY(-1px);
-  border-color: rgba(28,109,208,0.45);
-}
-
-.client-selector select:focus,
-.store-selector select:focus{
-  border-color: rgba(28,109,208,0.75);
-  box-shadow: 0 0 0 4px rgba(28,109,208,0.15), 0 10px 22px rgba(10,35,66,0.10);
-}
-
-/* flecha custom (dropdown) */
-.client-selector label,
-.store-selector label{
-  position: relative;
-}
-
-.client-selector label::after,
-.store-selector label::after{
-  content: "▾";
-  position: absolute;
-  right: 14px;
-  top: 50%;
-  transform: translateY(-50%);
-  pointer-events: none;
-  font-size: 16px;
-  font-weight: 950;
-  color: rgba(10,35,66,0.55);
-}
-
-/* en móvil: que use ancho completo */
-@media (max-width: 680px){
-  .client-selector select,
-  .store-selector select{
-    width: 100%;
-    min-width: 0;
-  }
-  .client-selector label::after,
-  .store-selector label::after{
-    right: 16px;
-  }
-}
-
-/* =========================================
-   CUSTOM SELECT MODERNO
-========================================= */
-
-.custom-select {
-  position: relative;
-  z-index: 1;
-}
-
-.custom-select.is-open { z-index: 999999; }
-
-.custom-select-display {
-  background: rgba(255,255,255,0.95);
-  border-radius: 18px;
-  padding: 14px 18px;
-  cursor: pointer;
-  box-shadow: 0 12px 30px rgba(10,35,66,0.12);
-  border: 1px solid rgba(28,109,208,0.3);
-  transition: 0.2s ease;
-}
-
-.custom-select-display:hover {
-  transform: translateY(-2px);
-}
-
-.custom-select-options {
-  position: absolute;
-  top: 110%;
-  left: 0;
-  width: 100%;
-  background: white;
-  border-radius: 14px;
-  box-shadow: 0 15px 40px rgba(0,0,0,0.15);
-  overflow: hidden;
-  display: none;
-  z-index: 999;
-}
-
-.custom-select-options div {
-  padding: 12px 16px;
-  cursor: pointer;
-  transition: 0.15s ease;
-}
-
-.custom-select-options div:hover {
-  background: #1C6DD0;
-  color: white;
-}
-
-/* Oculta el select nativo (pero lo deja en el DOM para que tu JS siga funcionando) */
+/* Oculta select nativo */
 .native-select-hidden{
-  position: absolute !important;
-  opacity: 0 !important;
-  pointer-events: none !important;
-  width: 1px !important;
-  height: 1px !important;
-  margin: 0 !important;
-  padding: 0 !important;
+  display: none !important;
 }
-
-/* Oculta el select nativo (sin romper layout) */
-.native-select-hidden { display: none !important; }
-
-/* Custom select moderno */
-.custom-select{
-  position: relative;
-  width: 320px;           /* cámbialo a 100% si quieres que sea full */
-  max-width: 100%;
-}
-
-.custom-select-display{
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 10px 12px;
-  border-radius: 14px;
-  background: rgba(255,255,255,0.75);
-  border: 1px solid rgba(0,0,0,0.08);
-  box-shadow: 0 8px 18px rgba(0,0,0,0.06);
-  cursor: pointer;
-  user-select: none;
-}
-
-.custom-select-icon{
-  width: 18px !important;
-  height: 18px !important;
-  flex: 0 0 18px;
-  object-fit: contain;
-  display: block;
-}
-
-.custom-select-options{
-  position: absolute;
-  left: 0;
-  right: 0;
-  top: calc(100% + 8px);
-  background: rgba(255,255,255,0.95);
-  border: 1px solid rgba(0,0,0,0.10);
-  border-radius: 14px;
-  box-shadow: 0 14px 30px rgba(0,0,0,0.12);
-  max-height: 260px;
-  overflow: auto;
-  display: none;
-  z-index: 99999; /* importante para que quede arriba */
-}
-
-.custom-select-option{
-  padding: 10px 12px;
-  cursor: pointer;
-}
-
-.custom-select-option:hover{
-  background: rgba(10,35,66,0.08);
-}
-
-/* Oculta el select nativo sin romper layout */
-.native-select-hidden { display: none !important; }
 
 /* Base */
-.custom-select { position: relative; z-index: 1; width: 100%; max-width: 520px; }
+.custom-select{
+  position: relative;
+  width: 100%;
+  max-width: 520px;
+}
 
-/* Cuando está abierto: que suba por encima de todo */
-.custom-select.is-open { z-index: 999999; }
+/* Cuando está abierto */
+.custom-select.is-open{
+  z-index: 999999;
+}
 
 /* Botón principal */
 .custom-select-display{
@@ -233,61 +25,73 @@ input[type="text"]{
   display: flex;
   align-items: center;
   gap: 10px;
-  border: 1px solid rgba(0,0,0,.10);
-  border-radius: 14px;
   padding: 12px 14px;
-  background: rgba(255,255,255,.70);
+
+  border-radius: 16px;
+  border: 1px solid rgba(28,109,208,0.25);
+
+  background: linear-gradient(180deg,#1f63d6,#0f49b5);
+  color: white;
+
+  font-weight: 800;
   cursor: pointer;
+  transition: 0.2s ease;
 }
 
+.custom-select-display:hover{
+  transform: translateY(-2px);
+}
+
+/* Icono */
 .custom-select-icon{
   width: 18px;
   height: 18px;
   object-fit: contain;
-  flex: 0 0 auto;
 }
 
+/* Texto */
 .custom-select-text{
-  flex: 1 1 auto;
+  flex: 1;
   text-align: left;
-  font-weight: 700;
-  color: #0A2342;
+  font-weight: 800;
+  color: white;
 }
 
-/* Flechita */
+/* Flecha */
 .custom-select-arrow{
-  flex: 0 0 auto;
-  opacity: .75;
-  transition: transform .18s ease, opacity .18s ease;
+  transition: transform .2s ease;
+  opacity: .9;
 }
 
-/* Flecha gira cuando abre */
 .custom-select.is-open .custom-select-arrow{
   transform: rotate(180deg);
-  opacity: 1;
 }
 
-/* Dropdown */
-.custom-select-options{
-  position: absolute;
-  left: 0;
-  right: 0;
-  top: calc(100% + 8px);
-  background: rgba(255,255,255,.98);
-  border: 1px solid rgba(0,0,0,.10);
-  border-radius: 14px;
-  box-shadow: 0 18px 40px rgba(0,0,0,.15);
-  overflow: hidden;
+/* =========================================
+   Dropdown portal (va al body)
+========================================= */
 
-  /* animación */
+.custom-select-portal{
+  position: fixed;
+  z-index: 2147483647;
+
+  background: #0A2342;     /* 🔵 Fondo azul oscuro */
+  color: white;
+
+  border-radius: 16px;
+  border: 1px solid rgba(255,255,255,.15);
+  box-shadow: 0 20px 45px rgba(0,0,0,.35);
+
+  max-height: 280px;
+  overflow-y: auto;
+
   opacity: 0;
   transform: translateY(-6px);
   pointer-events: none;
-  transition: opacity .16s ease, transform .16s ease;
+  transition: all .18s ease;
 }
 
-/* cuando abre */
-.custom-select.is-open .custom-select-options{
+.custom-select-portal.is-open{
   opacity: 1;
   transform: translateY(0);
   pointer-events: auto;
@@ -299,37 +103,18 @@ input[type="text"]{
   text-align: left;
   background: transparent;
   border: 0;
-  padding: 12px 14px;
+  padding: 12px 16px;
   cursor: pointer;
-  font-weight: 600;
-  color: #0A2342;
+  font-weight: 700;
+  color: white;
+  transition: 0.15s ease;
 }
 
 .custom-select-option:hover{
-  background: rgba(10,35,66,.06);
+  background: rgba(255,255,255,.15);
 }
 
-/* Dropdown en "portal" (se va al body) */
-.custom-select-portal{
-  position: fixed;
-  background: rgba(255,255,255,.98);
-  border: 1px solid rgba(0,0,0,.10);
-  border-radius: 14px;
-  box-shadow: 0 18px 40px rgba(0,0,0,.15);
-  overflow: hidden;
-
-  z-index: 2147483647; /* máximo */
-  max-height: 280px;
-  overflow-y: auto;
-
-  opacity: 0;
-  transform: translateY(-6px);
-  pointer-events: none;
-  transition: opacity .16s ease, transform .16s ease;
-}
-
-.custom-select-portal.is-open{
-  opacity: 1;
-  transform: translateY(0);
-  pointer-events: auto;
+/* Opción seleccionada */
+.custom-select-option.is-selected{
+  background: rgba(79,163,255,.25);
 }
