@@ -1,90 +1,24 @@
-/* Oculta el select nativo sin romper layout */
-.native-select-hidden { display: none !important; }
-
-/* Base */
-.custom-select { position: relative; z-index: 1; width: 100%; max-width: 520px; }
-
-/* Cuando está abierto: que suba por encima de todo */
-.custom-select.is-open { z-index: 999999; }
-
-/* Botón principal */
-.custom-select-display{
-  width: 100%;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  border: 1px solid rgba(0,0,0,.10);
-  border-radius: 14px;
-  padding: 12px 14px;
-  background: rgba(255,255,255,.70);
-  cursor: pointer;
-}
-
-.custom-select-icon{
-  width: 18px;
-  height: 18px;
-  object-fit: contain;
-  flex: 0 0 auto;
-}
-
-.custom-select-text{
-  flex: 1 1 auto;
-  text-align: left;
-  font-weight: 700;
-  color: #0A2342;
-}
-
-/* Flechita */
-.custom-select-arrow{
-  flex: 0 0 auto;
-  opacity: .75;
-  transition: transform .18s ease, opacity .18s ease;
-}
-
-/* Flecha gira cuando abre */
-.custom-select.is-open .custom-select-arrow{
-  transform: rotate(180deg);
-  opacity: 1;
-}
-
-/* Dropdown */
-.custom-select-options{
-  position: absolute;
-  left: 0;
-  right: 0;
-  top: calc(100% + 8px);
+/* Dropdown en "portal" (se va al body) */
+.custom-select-portal{
+  position: fixed;
   background: rgba(255,255,255,.98);
   border: 1px solid rgba(0,0,0,.10);
   border-radius: 14px;
   box-shadow: 0 18px 40px rgba(0,0,0,.15);
   overflow: hidden;
 
-  /* animación */
+  z-index: 2147483647; /* máximo */
+  max-height: 280px;
+  overflow-y: auto;
+
   opacity: 0;
   transform: translateY(-6px);
   pointer-events: none;
   transition: opacity .16s ease, transform .16s ease;
 }
 
-/* cuando abre */
-.custom-select.is-open .custom-select-options{
+.custom-select-portal.is-open{
   opacity: 1;
   transform: translateY(0);
   pointer-events: auto;
-}
-
-/* Opciones */
-.custom-select-option{
-  width: 100%;
-  text-align: left;
-  background: transparent;
-  border: 0;
-  padding: 12px 14px;
-  cursor: pointer;
-  font-weight: 600;
-  color: #0A2342;
-}
-
-.custom-select-option:hover{
-  background: rgba(10,35,66,.06);
 }
