@@ -1,55 +1,25 @@
 /* =========================================================
-   ✅ TERMINAL: Select "Ver" (statusFilter) estilo moderno
-   - Blanco + letras oscuras
-   - Flechita
+   ✅ TERMINAL - "Ver:" + selector en la misma línea
 ========================================================= */
 
-#statusFilter{
-  -webkit-appearance: none;
-  -moz-appearance: none;
-  appearance: none;
+/* Contenedor de la fila (ajusta si tu clase es distinta) */
+.terminal-controls{
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+}
 
-  background: rgba(255,255,255,0.92);
-  color: #0A2342;
+/* Asegura que el custom select no ocupe 100% */
+.terminal-controls .custom-select{
+  width: auto !important;
+  max-width: 220px !important;
+  flex: 0 0 auto;
+}
+
+/* Ajuste visual del texto "Ver:" */
+.terminal-controls label,
+.terminal-controls span{
   font-weight: 900;
-
-  border: 1px solid rgba(10,35,66,0.18);
-  border-radius: 14px;
-
-  padding: 10px 42px 10px 14px; /* espacio flecha */
-  min-width: 180px;
-
-  box-shadow: 0 10px 26px rgba(10,35,66,0.10);
-  backdrop-filter: blur(10px);
-  outline: none;
-
-  transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease;
-}
-
-#statusFilter:hover{
-  transform: translateY(-1px);
-  border-color: rgba(28,109,208,0.35);
-}
-
-#statusFilter:focus{
-  border-color: rgba(28,109,208,0.55);
-  box-shadow: 0 0 0 4px rgba(28,109,208,0.14), 0 12px 30px rgba(10,35,66,0.12);
-}
-
-/* Flecha para el select de Terminal:
-   Si tu HTML tiene "Ver: <select...>" dentro de un label o contenedor,
-   esta regla intenta poner la flecha encima sin cambiar HTML. */
-#statusFilter{
-  background-image: linear-gradient(45deg, transparent 50%, rgba(10,35,66,.75) 50%),
-                    linear-gradient(135deg, rgba(10,35,66,.75) 50%, transparent 50%);
-  background-position: calc(100% - 18px) calc(50% - 2px),
-                       calc(100% - 12px) calc(50% - 2px);
-  background-size: 6px 6px, 6px 6px;
-  background-repeat: no-repeat;
-}
-
-/* Opciones del dropdown (limitado por el navegador, pero mejora algo) */
-#statusFilter option{
   color: #0A2342;
-  font-weight: 700;
 }
