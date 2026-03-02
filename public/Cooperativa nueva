@@ -1,40 +1,42 @@
-/* =========================
-   TERMINAL: botón + "Ver:" + select en la misma línea
-========================= */
-#view-status-all .toolbar{
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  flex-wrap: wrap;
+/* Toolbar Terminal: todo alineado en una fila */
+.terminal-toolbar{
+  display:flex;
+  align-items:center;
+  gap:14px;
+  flex-wrap:wrap;
 }
 
-/* El label no debe ocupar toda la fila */
-#view-status-all .toolbar > label{
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin: 0;
-  flex: 0 0 auto;
+.terminal-filter{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  font-weight:900;
+  color:#0A2342;
 }
 
-/* El select del terminal: ancho controlado (no 100%) */
-#view-status-all .toolbar #statusFilter{
-  width: auto;
-  min-width: 160px;
+/* Búsqueda */
+.terminal-search{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  font-weight:900;
+  color:#0A2342;
 }
 
-/* Si usas custom select también en terminal */
-#view-status-all .toolbar .custom-select{
-  width: auto !important;
-  max-width: 220px !important;
-  flex: 0 0 auto;
+#terminalSearch{
+  width: 280px;
+  max-width: 100%;
+  padding: 10px 12px;
+  border-radius: 14px;
+  border: 1px solid rgba(0,0,0,.10);
+  background: rgba(255,255,255,.85);
+  color:#0A2342;
+  font-weight:700;
+  outline:none;
+  box-shadow: 0 8px 18px rgba(0,0,0,0.06);
 }
 
-#view-status-all #statusFilter{
-  background: rgba(255,255,255,0.85);
-  color: #0A2342;
-  font-weight: 900;
-  border-radius: 12px;
-  border: 1px solid rgba(0,0,0,0.12);
-  padding: 10px 36px 10px 12px;
+#terminalSearch:focus{
+  border-color: rgba(28,109,208,0.55);
+  box-shadow: 0 0 0 4px rgba(28,109,208,0.12), 0 10px 22px rgba(10,35,66,0.10);
 }
