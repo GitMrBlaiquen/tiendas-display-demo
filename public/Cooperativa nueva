@@ -12,6 +12,7 @@
 // - ✅ NUEVO: Vista TERMINAL (todos los sensores online/apagados)
 // - ✅ Ocultar selectores SOLO en Terminal
 // - ✅ Sidebar overlay (UI)
+// - ✅ NUEVO TERMINAL: filtro por Cliente + buscador (tienda/storeId/SN)
 // ==============================
 
 const BASE_URL = window.location.origin;
@@ -109,8 +110,8 @@ function setupGlobalDateButtons() {
           fp.close();
         }
 
-        if (id === "chartDate") loadChart();
-        if (id === "historyDate") loadHistory();
+        if (id === "chartDate") loadChart?.();
+        if (id === "historyDate") loadHistory?.();
       }
 
       if (clearBtn) {
@@ -249,6 +250,11 @@ const refreshAllStatusBtn = document.getElementById("refreshAllStatusBtn");
 const statusFilter = document.getElementById("statusFilter");
 const allStatusResult = document.getElementById("allStatusResult");
 
+// ✅ NUEVO TERMINAL: filtro cliente + buscador
+const terminalClientFilter = document.getElementById("terminalClientFilter"); // <select id="terminalClientFilter">
+const terminalSearch = document.getElementById("terminalSearch"); // <input id="terminalSearch">
+let lastAllStatusesCache = []; // cache para filtrar sin refetch
+
 // ✅ activar listener global de botones
 setupGlobalDateButtons();
 
@@ -355,6 +361,74 @@ function getStoreName(storeId) {
 }
 
 // ------------------------------
+// ✅ NUEVO TERMINAL: helpers filtro cliente + búsqueda
+// ------------------------------
+function buildClientListForTerminal(stores) {
+  const list = buildClientsFromStores(stores || []);
+  list.sort((a, b) => a.name.localeCompare(b.name, "es"));
+  return list;
+}
+
+function fillTerminalClientSelect() {
+  if (!terminalClientFilter) return;
+
+  const list = buildClientListForTerminal(currentStores);
+
+  terminalClientFilter.innerHTML = "";
+
+  const optAll = document.createElement("option");
+  optAll.value = "all";
+  optAll.textContent = "Todos";
+  terminalClientFilter.appendChild(optAll);
+
+  list.forEach((c) => {
+    const opt = document.createElement("option");
+    opt.value = c.id;
+    opt.textContent = c.name;
+    terminalClientFilter.appendChild(opt);
+  });
+
+  // mantener selección
+  const prev = terminalClientFilter.dataset.selected || "all";
+  terminalClientFilter.value = prev;
+}
+
+function getTerminalFilters() {
+  const clientId = terminalClientFilter?.value || "all";
+  const status = statusFilter?.value || "all";
+  const q = (terminalSearch?.value || "").trim().toLowerCase();
+  return { clientId, status, q };
+}
+
+function applyTerminalFiltersAndRender() {
+  const { clientId, status, q } = getTerminalFilters();
+
+  let list = Array.isArray(lastAllStatusesCache) ? [...lastAllStatusesCache] : [];
+
+  // cliente
+  if (clientId !== "all") {
+    list = list.filter((x) => getClientIdFromStoreId(x.storeId) === clientId);
+  }
+
+  // estado
+  if (status === "online") list = list.filter((x) => x.online === true);
+  if (status === "offline") list = list.filter((x) => x.online === false);
+
+  // búsqueda (nombre / storeId / sn)
+  if (q) {
+    list = list.filter((x) => {
+      const name = String(x.storeName || getStoreName(x.storeId) || "").toLowerCase();
+      const id = String(x.storeId || "").toLowerCase();
+      const sn = String(x.sn || "").toLowerCase();
+      return name.includes(q) || id.includes(q) || sn.includes(q);
+    });
+  }
+
+  // ya filtramos nosotros => renderAllStatuses con "all"
+  renderAllStatuses(list, "all");
+}
+
+// ------------------------------
 // ✅ Menú lateral: cambiar vista
 // - Oculta selectores SOLO en Terminal
 // - Carga estados al entrar a Terminal
@@ -383,6 +457,11 @@ function showView(viewId) {
   if (isTerminal) {
     if (clientSelectorSection) clientSelectorSection.style.display = "none";
     if (storeSelectorSection) storeSelectorSection.style.display = "none";
+
+    // ✅ NUEVO: poblar selector cliente del Terminal y customizarlo
+    fillTerminalClientSelect();
+    initCustomSelects();
+
     loadAllStatuses();
   } else {
     if (storeSelectorSection) {
@@ -392,6 +471,7 @@ function showView(viewId) {
       clientSelectorSection.style.display =
         currentRole === "admin" ? clientSelectorSection.dataset.prevDisplay || "" : "none";
     }
+    closeAllCustomSelects();
   }
 }
 
@@ -533,12 +613,16 @@ async function forceRefreshAll() {
 
   const hText = (historyDateInput?.value || "").trim();
   if (hText) {
-    try { await loadHistory(); } catch {}
+    try {
+      await loadHistory();
+    } catch {}
   }
 
   const cText = (chartDateInput?.value || "").trim();
   if (cText) {
-    try { await loadChart(); } catch {}
+    try {
+      await loadChart?.();
+    } catch {}
   }
 
   showRefreshToast(`Actualizado ✅ ${formatDateTimeDDMMYYYY(new Date())}`);
@@ -714,7 +798,7 @@ function makeCustomSelect(selectId, { iconSrc = "" } = {}) {
   optionsBox.className = "custom-select-portal";
   optionsBox.style.display = "none";
 
-  // estilos inline para que funcione aunque no tengas CSS aún
+  // estilos inline mínimos
   optionsBox.style.position = "fixed";
   optionsBox.style.zIndex = "999999";
   optionsBox.style.maxHeight = "280px";
@@ -749,6 +833,8 @@ function makeCustomSelect(selectId, { iconSrc = "" } = {}) {
       item.style.background = "transparent";
       item.style.borderRadius = "10px";
       item.style.cursor = "pointer";
+      item.style.color = "#0A2342";
+      item.style.fontWeight = "700";
 
       item.addEventListener("mouseenter", () => {
         item.style.background = "rgba(10,35,66,.08)";
@@ -804,19 +890,19 @@ function makeCustomSelect(selectId, { iconSrc = "" } = {}) {
     }
 
     rebuildOptions();
-    
+
     optionsBox.style.visibility = "hidden";
     optionsBox.style.display = "block";
-    
+
     const r = display.getBoundingClientRect();
     const gap = 8;
-    
+
     optionsBox.style.left = `${Math.round(r.left)}px`;
     optionsBox.style.top = `${Math.round(r.bottom + gap)}px`;
     optionsBox.style.width = `${Math.round(r.width)}px`;
-    
+
     optionsBox.style.visibility = "visible";
-    
+
     wrapper.classList.add("is-open");
     optionsBox.classList.add("is-open");
   });
@@ -843,6 +929,7 @@ function initCustomSelects() {
   removeCustomSelect("storeSelect");
   removeCustomSelect("clientSelect");
   removeCustomSelect("statusFilter");
+  removeCustomSelect("terminalClientFilter");
 
   // siempre: tienda
   makeCustomSelect("storeSelect", { iconSrc: "tienda.png" });
@@ -851,8 +938,10 @@ function initCustomSelects() {
   if (currentRole === "admin") {
     makeCustomSelect("clientSelect", { iconSrc: "user.png" });
   }
-  
+
+  // Terminal: Ver + Cliente (si existen en DOM)
   makeCustomSelect("statusFilter");
+  makeCustomSelect("terminalClientFilter", { iconSrc: "user.png" });
 }
 
 // ------------------------------
@@ -926,6 +1015,9 @@ async function login() {
       fillStoreSelectSimple();
     }
 
+    // ✅ Terminal: poblar filtro cliente si existe
+    fillTerminalClientSelect();
+
     // ✅ ahora sí: custom selects
     initCustomSelects();
 
@@ -981,6 +1073,8 @@ function logout() {
   // limpiar custom selects
   removeCustomSelect("storeSelect");
   removeCustomSelect("clientSelect");
+  removeCustomSelect("statusFilter");
+  removeCustomSelect("terminalClientFilter");
   closeAllCustomSelects();
 
   currentUser = null;
@@ -990,11 +1084,16 @@ function logout() {
   clients = [];
   currentClientId = null;
 
+  lastAllStatusesCache = [];
+
   if (userInfo) userInfo.textContent = "";
   if (storeSelect) storeSelect.innerHTML = "";
   if (clientSelect) clientSelect.innerHTML = "";
   if (clientSelectorSection) clientSelectorSection.style.display = "none";
   if (resetStoreBtn) resetStoreBtn.style.display = "none";
+
+  if (terminalClientFilter) terminalClientFilter.innerHTML = `<option value="all" selected>Todos</option>`;
+  if (terminalSearch) terminalSearch.value = "";
 
   if (sensorsContainer) sensorsContainer.innerHTML = "<p>Inicia sesión para ver el contador de personas.</p>";
 
@@ -1175,14 +1274,7 @@ if (exportDayBtn) exportDayBtn.addEventListener("click", exportDay);
 // ------------------------------
 // ✅ DONUT + PANEL FIJO
 // ------------------------------
-const DONUT_LABELS = [
-  "Clientes (Entraron)",
-  "Clientes (Salieron)",
-  "Niños (Entraron)",
-  "Niños (Salieron)",
-  "Empleados",
-];
-
+const DONUT_LABELS = ["Clientes (Entraron)", "Clientes (Salieron)", "Niños (Entraron)", "Niños (Salieron)", "Empleados"];
 const DONUT_COLORS = ["#36A2EB", "#FF6384", "#FFCE56", "#9966FF", "#4BC0C0"];
 
 function destroyDonut() {
@@ -1208,10 +1300,7 @@ function renderDonutFromCounters(counters) {
 
   donutChart = new Chart(donutCanvas, {
     type: "doughnut",
-    data: {
-      labels: DONUT_LABELS,
-      datasets: [{ data, backgroundColor: DONUT_COLORS, borderWidth: 1 }],
-    },
+    data: { labels: DONUT_LABELS, datasets: [{ data, backgroundColor: DONUT_COLORS, borderWidth: 1 }] },
     options: {
       responsive: true,
       maintainAspectRatio: false,
@@ -1368,6 +1457,7 @@ if (!hasFlatpickr) {
 
 // ------------------------------
 // ✅ TERMINAL: todas las tiendas online / apagado
+// + filtro por cliente + búsqueda
 // ------------------------------
 async function fetchStoreStatus(storeId) {
   const url = `${STATUS_URL}?storeId=${encodeURIComponent(storeId)}`;
@@ -1392,7 +1482,7 @@ function renderAllStatuses(list, filterValue = "all") {
 
   allStatusResult.innerHTML = filtered
     .map((x) => {
-      const storeName = getStoreName(x.storeId);
+      const storeName = x.storeName || getStoreName(x.storeId);
       const on = x.online === true;
       return `
         <article class="status-card">
@@ -1426,22 +1516,48 @@ async function loadAllStatuses() {
 
   allStatusResult.innerHTML = `<p>Cargando estados...</p>`;
 
-  const tasks = currentStores.map(async (s) => {
+  const { clientId } = getTerminalFilters();
+
+  // ✅ filtrar ANTES de hacer fetch (menos llamadas)
+  const storesToFetch =
+    clientId === "all"
+      ? currentStores
+      : currentStores.filter((s) => getClientIdFromStoreId(s.id) === clientId);
+
+  const tasks = storesToFetch.map(async (s) => {
     try {
       const st = await fetchStoreStatus(s.id);
-      return { storeId: s.id, online: !!st?.online, sn: st?.sn || "" };
+      return { storeId: s.id, storeName: getStoreName(s.id), online: !!st?.online, sn: st?.sn || "" };
     } catch {
-      return { storeId: s.id, online: false, sn: "" };
+      return { storeId: s.id, storeName: getStoreName(s.id), online: false, sn: "" };
     }
   });
 
   const results = await Promise.all(tasks);
-  const filterValue = statusFilter?.value || "all";
-  renderAllStatuses(results, filterValue);
+
+  // cache + render filtrado (estado + búsqueda)
+  lastAllStatusesCache = results;
+  applyTerminalFiltersAndRender();
 }
 
+// ✅ listeners Terminal
 if (refreshAllStatusBtn) refreshAllStatusBtn.addEventListener("click", loadAllStatuses);
-if (statusFilter) statusFilter.addEventListener("change", loadAllStatuses);
+
+// status => filtrar cache (no refetch)
+if (statusFilter) statusFilter.addEventListener("change", () => applyTerminalFiltersAndRender());
+
+// cliente => refetch (cambia set de tiendas)
+if (terminalClientFilter) {
+  terminalClientFilter.addEventListener("change", () => {
+    terminalClientFilter.dataset.selected = terminalClientFilter.value || "all";
+    loadAllStatuses();
+  });
+}
+
+// búsqueda => filtrar cache en vivo
+if (terminalSearch) {
+  terminalSearch.addEventListener("input", () => applyTerminalFiltersAndRender());
+}
 
 /* =========================================================
    ✅ SIDEBAR OVERLAY (UI)
