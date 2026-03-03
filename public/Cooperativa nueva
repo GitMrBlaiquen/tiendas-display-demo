@@ -1,349 +1,100 @@
-:root{
-  --bg: #63695E;
-  --card: rgba(255,187,191,0.85);
-  --ink: #0A2342;
-  --muted: rgba(10,35,66,0.65);
-  --shadow: 0 10px 24px rgba(0,0,0,0.06);
-  --radius: 14px;
+/* =====================================================
+   🎨 THEMES POR CLIENTE (Leonisa / Arrow)
+   Pegar al FINAL del archivo
+===================================================== */
+
+/* =========================
+   LEONISA (rosado original)
+========================= */
+.store-card[data-client="leonisa"]{
+  background: rgba(255,187,191,0.85) !important;
+  color: #0A2342;
 }
 
-*{ box-sizing: border-box; }
-
-.tv-body{
-  margin: 0;
-  font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
-  background: var(--bg);
-  color: var(--ink);
-
-  min-height: 85vh;
-  display: grid;
-  grid-template-rows: auto 1fr; /* ✅ sin footer */
+.store-card[data-client="leonisa"] .store-name{
+  color: #0A2342;
 }
 
-/* ----------------------------
-   HEADER: Cliente+Hora (izq) / Logo (derecha) / Título
----------------------------- */
-.tv-top{
-  position: relative;
-  padding: 10px 24px 8px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
+.store-card[data-client="leonisa"] .store-sub{
+  color: rgba(10,35,66,0.65);
 }
 
-/* bloque cliente/hora arriba a la izquierda */
-.tv-client-block{
-  width: 100%;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  text-align: left;
-}
-
-/* Cliente */
-.tv-client{
-  font-weight: 950;
-  font-size: 28px;
-}
-
-/* Hora debajo del cliente */
-.tv-time{
-  font-size: 20px;
-  color: var(--muted);
-  font-weight: 800;
-  margin-top: 4px;
-}
-
-/* Logo arriba derecha */
-.tv-client-logo{
-  position: absolute;
-  right: 26px;
-  top: 8px;
-
-  height: 100px;        /* ✅ cámbialo aquí para más grande */
-  width: auto;
-  object-fit: contain;
-
-  display: none;        /* tv.js lo activa cuando hay logo */
-}
-
-/* Título centrado debajo */
-.tv-title{
-  margin: 1px 0 0;
-  text-align: center;
-  font-size: 38px;
-  font-weight: 800;
-  letter-spacing: 0.2px;
-}
-
-/* ----------------------------
-   MAIN / GRID
----------------------------- */
-.tv-main{
-  padding: 20px 22px 14px;
-}
-
-/* ✅ 4 por fila */
-.tv-grid{
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 18px;
-}
-
-/* ✅ Cards creadas por tv.js */
-.store-card{
-  position: relative;
-  background: var(--card);
-  border-radius: var(--radius);
-  box-shadow: var(--shadow);
-  padding: 6px;
-  overflow: hidden;
-
-  height: 240px;
-  display: flex;
-  flex-direction: column;
-}
-
-.store-card.is-empty{
-  opacity: 0.55;
-}
-
-/* Header de card */
-.store-head{
-  position: relative;
-  margin-bottom: 6px;
-}
-
-.store-name{
-  font-weight: 900;
-  font-size: 16px;
-  margin: 2px 0 2px;
-  color: var(--ink);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.store-sub{
-  font-size: 13px;
-  color: var(--muted);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-/* Body: donut + stats */
-.store-body{
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 2px;
-  align-items: start;
-}
-
-.store-chart{
-  position: relative;
-  height: 155px;
-  width: 80%;
-}
-
-.store-chart canvas{
-  width: 100% !important;
-  height: 100% !important;
-}
-
-/* ----------------------------
-   Stats (columna derecha)
----------------------------- */
-.store-stats{
-  position: relative;      /* ✅ clave para status absolute */
-  max-height: 160px;
-  display: grid;
-  gap: 8px;
-  font-size: 12px;
-}
-
-/* ✅ Estado flotante (NO empuja los rows) */
-.store-status{
-  position: absolute;
-  top: -35px;               /* ajusta si quieres */
-  left: 0;
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-
-  padding: 4px 6px;
-  border-radius: 10px;
-  background: rgba(255,255,255,0.55);
-  font-weight: 900;
-  color: rgba(10,35,66,.85);
-
-  pointer-events: none;
-}
-
-/* ✅ Deja espacio para que el primer row no choque con el status */
-.store-stats .stat-row:first-of-type{
-  margin-top: 34px;        /* ajusta 18-26 si quieres más/menos */
-}
-
-.stat-row{
-  display: flex;
-  justify-content: space-between;
-  gap: 8px;
-  padding: 3px 6px;
-  border-radius: 8px;
+.store-card[data-client="leonisa"] .stat-row{
   background: rgba(255,255,255,0.55);
   border: 1px solid rgba(0,0,0,0.04);
 }
 
-.stat-row span:first-child{
+.store-card[data-client="leonisa"] .stat-row span:first-child{
   color: rgba(10,35,66,.80);
-  font-weight: 800;
 }
 
-.stat-row span:last-child{
-  font-weight: 900;
+.store-card[data-client="leonisa"] .stat-row span:last-child{
+  color: #0A2342;
 }
 
-/* Etiqueta con dot de color (métricas) */
-.stat-label{
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.dot{
-  width: 9px;
-  height: 9px;
-  min-width: 10px;
-  min-height: 10px;
-  border-radius: 999px;
-  display: inline-block;
-  background: #999;
-  border: 1px solid rgba(0,0,0,0.20);
-}
-
-.dot-inside{
-  background: #000000;
-}
-
-/* Estado online/offline: SOLO 1 círculo */
-.status-dot{
-  width: 10px;
-  height: 10px;
-  border-radius: 999px;
-  box-shadow: 0 0 0 2px rgba(255,255,255,0.65);
-}
-
-.status-online{  background: #19a34a; }  /* verde */
-.status-offline{ background: #dc2626; }  /* rojo */
-.status-unknown{ background: #9ca3af; }  /* gris */
-
-.status-text{
-  font-weight: 900;
-  font-size: 12px;
+.store-card[data-client="leonisa"] .store-status{
+  background: rgba(255,255,255,0.55);
   color: rgba(10,35,66,.85);
 }
 
-/* ----------------------------
-   Footer de card
----------------------------- */
-.store-foot{
-  margin-top: auto;        /* ✅ mantiene LIVE/hora abajo sin que nada lo tape */
-  display: flex;
-  justify-content: space-between;
-  gap: 8px;
+.store-card[data-client="leonisa"] .status-text{
+  color: rgba(10,35,66,.85);
 }
 
-.pill{
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 12px;
-  font-weight: 900;
-  padding: 2px 8px;
-  border-radius: 999px;
-  background: rgba(10,35,66,0.08);
-  color: rgba(10,35,66,.90);
-  border: 1px solid rgba(10,35,66,0.08);
-}
 
-.pill-off{
-  background: rgba(0,0,0,0.06);
-  border-color: rgba(0,0,0,0.06);
-  color: rgba(0,0,0,0.55);
-}
-
-/* ----------------------------
-   Error overlay
----------------------------- */
-.tv-error{
-  position: fixed;
-  inset: 0;
-  display: none;
-  align-items: center;
-  justify-content: center;
-  background: rgba(0,0,0,0.35);
-  z-index: 9999;
-}
-
-.tv-error-box{
-  background: rgba(255,255,255,0.95);
-  border-radius: 16px;
-  box-shadow: 0 20px 50px rgba(0,0,0,0.20);
-  padding: 18px;
-  width: min(520px, calc(100vw - 40px));
-}
-
-.tv-error-box h2{
-  margin: 0 0 8px;
-  font-size: 18px;
-  font-weight: 950;
-  color: var(--ink);
-}
-
-.tv-error-box p{
-  margin: 0;
-  color: rgba(10,35,66,.75);
-  font-weight: 700;
-  white-space: pre-line;
-}
-
-/* ============ THEME por cliente ============ */
-/* Base */
-.store-card{
-  --card-bg: rgba(255,255,255,.78);
-  --card-border: rgba(0,0,0,.08);
-  --card-shadow: 0 16px 40px rgba(0,0,0,.12);
-  --ink: #0A2342;
-  --muted: rgba(10,35,66,.70);
-  --row-bg: rgba(255,255,255,.70);
-  --row-border: rgba(0,0,0,.06);
-
-  background: var(--card-bg);
-  border: 1px solid var(--card-border);
-  box-shadow: var(--card-shadow);
-  color: var(--ink);
-}
-
-.store-card .store-name{ color: var(--ink); }
-.store-card .store-sub{ color: var(--muted); }
-.store-card .stat-row{
-  background: var(--row-bg);
-  border: 1px solid var(--row-border);
-}
-
-/* ARROW oscuro */
+/* =========================
+   ARROW (oscuro elegante)
+========================= */
 .store-card[data-client="arrow"]{
-  --card-bg: linear-gradient(180deg, rgba(10,35,66,.93) 0%, rgba(6,18,40,.90) 100%);
-  --card-border: rgba(255,255,255,.10);
-  --card-shadow: 0 18px 55px rgba(0,0,0,.38);
-  --ink: rgba(255,255,255,.95);
-  --muted: rgba(255,255,255,.72);
-  --row-bg: rgba(255,255,255,.08);
-  --row-border: rgba(255,255,255,.10);
+  background: linear-gradient(
+    180deg,
+    rgba(10,35,66,.93) 0%,
+    rgba(6,18,40,.90) 100%
+  ) !important;
+
+  border: 1px solid rgba(255,255,255,.10);
+  box-shadow: 0 18px 55px rgba(0,0,0,.38);
+  color: rgba(255,255,255,.95);
 }
 
-/* Si tu estado (texto) queda muy oscuro en Arrow */
-.store-card[data-client="arrow"] .store-status .status-text{
+/* Títulos */
+.store-card[data-client="arrow"] .store-name{
+  color: rgba(255,255,255,.95);
+}
+
+.store-card[data-client="arrow"] .store-sub{
+  color: rgba(255,255,255,.70);
+}
+
+/* Filas */
+.store-card[data-client="arrow"] .stat-row{
+  background: rgba(255,255,255,.08);
+  border: 1px solid rgba(255,255,255,.10);
+}
+
+.store-card[data-client="arrow"] .stat-row span:first-child{
+  color: rgba(255,255,255,.75);
+}
+
+.store-card[data-client="arrow"] .stat-row span:last-child{
+  color: rgba(255,255,255,.95);
+}
+
+/* Status flotante */
+.store-card[data-client="arrow"] .store-status{
+  background: rgba(0,0,0,.25);
+  border: 1px solid rgba(255,255,255,.12);
+  backdrop-filter: blur(8px);
+  color: rgba(255,255,255,.95);
+}
+
+.store-card[data-client="arrow"] .status-text{
+  color: rgba(255,255,255,.95);
+}
+
+/* Pills footer */
+.store-card[data-client="arrow"] .pill{
+  background: rgba(255,255,255,.10);
   color: rgba(255,255,255,.90);
+  border: 1px solid rgba(255,255,255,.12);
 }
