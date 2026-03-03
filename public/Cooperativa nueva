@@ -1,100 +1,32 @@
-/* =====================================================
-   🎨 THEMES POR CLIENTE (Leonisa / Arrow)
-   Pegar al FINAL del archivo
-===================================================== */
-
 /* =========================
-   LEONISA (rosado original)
+   SLOTS VACÍOS (sin sensor)
+   - NO hereda Leonisa
+   - neutro y elegante
 ========================= */
-.store-card[data-client="leonisa"]{
-  background: rgba(255,187,191,0.85) !important;
-  color: #0A2342;
+.store-card.is-empty{
+  background: rgba(255,255,255,.25) !important;
+  border: 1px solid rgba(255,255,255,.18);
+  box-shadow: 0 12px 30px rgba(0,0,0,.18);
+  opacity: 0.55; /* si lo quieres más visible, sube a 0.75 */
 }
 
-.store-card[data-client="leonisa"] .store-name{
-  color: #0A2342;
+.store-card.is-empty .store-name,
+.store-card.is-empty .store-sub,
+.store-card.is-empty .stat-row span,
+.store-card.is-empty .pill{
+  color: rgba(255,255,255,.65) !important;
 }
 
-.store-card[data-client="leonisa"] .store-sub{
-  color: rgba(10,35,66,0.65);
+.store-card.is-empty .stat-row{
+  background: rgba(255,255,255,.10) !important;
+  border: 1px solid rgba(255,255,255,.10) !important;
 }
 
-.store-card[data-client="leonisa"] .stat-row{
-  background: rgba(255,255,255,0.55);
-  border: 1px solid rgba(0,0,0,0.04);
+.store-card.is-empty .store-status{
+  background: rgba(0,0,0,.18) !important;
+  border: 1px solid rgba(255,255,255,.10) !important;
 }
 
-.store-card[data-client="leonisa"] .stat-row span:first-child{
-  color: rgba(10,35,66,.80);
-}
-
-.store-card[data-client="leonisa"] .stat-row span:last-child{
-  color: #0A2342;
-}
-
-.store-card[data-client="leonisa"] .store-status{
-  background: rgba(255,255,255,0.55);
-  color: rgba(10,35,66,.85);
-}
-
-.store-card[data-client="leonisa"] .status-text{
-  color: rgba(10,35,66,.85);
-}
-
-
-/* =========================
-   ARROW (oscuro elegante)
-========================= */
-.store-card[data-client="arrow"]{
-  background: linear-gradient(
-    180deg,
-    rgba(10,35,66,.93) 0%,
-    rgba(6,18,40,.90) 100%
-  ) !important;
-
-  border: 1px solid rgba(255,255,255,.10);
-  box-shadow: 0 18px 55px rgba(0,0,0,.38);
-  color: rgba(255,255,255,.95);
-}
-
-/* Títulos */
-.store-card[data-client="arrow"] .store-name{
-  color: rgba(255,255,255,.95);
-}
-
-.store-card[data-client="arrow"] .store-sub{
-  color: rgba(255,255,255,.70);
-}
-
-/* Filas */
-.store-card[data-client="arrow"] .stat-row{
-  background: rgba(255,255,255,.08);
-  border: 1px solid rgba(255,255,255,.10);
-}
-
-.store-card[data-client="arrow"] .stat-row span:first-child{
-  color: rgba(255,255,255,.75);
-}
-
-.store-card[data-client="arrow"] .stat-row span:last-child{
-  color: rgba(255,255,255,.95);
-}
-
-/* Status flotante */
-.store-card[data-client="arrow"] .store-status{
-  background: rgba(0,0,0,.25);
-  border: 1px solid rgba(255,255,255,.12);
-  backdrop-filter: blur(8px);
-  color: rgba(255,255,255,.95);
-}
-
-.store-card[data-client="arrow"] .status-text{
-  color: rgba(255,255,255,.95);
-}
-
-/* Pills footer */
-.store-card[data-client="arrow"] .pill{
-  background: rgba(255,255,255,.10);
-  color: rgba(255,255,255,.90);
-  border: 1px solid rgba(255,255,255,.12);
+.store-card.is-empty .dot{
+  opacity: .45;
 }
