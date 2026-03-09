@@ -14,7 +14,7 @@ const __dirname = path.dirname(__filename);
 
 app.use(express.static(path.join(__dirname, "..", "public")));
 
-const DATA_PATH = path.join(__dirname, "data.json");
+const DATA_PATH = process.env.DATA_PATH || "/var/data/data.json";
 
 async function loadDb() {
   try {
@@ -462,1003 +462,543 @@ const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log("Servidor listo en puerto", PORT));
 
 
-const API = "";
-
-let selectedPerson = null;
-let lastRadio = null;
-let peopleCache = [];
-let assignmentsCache = [];
-let expectedCache = [];
-let groupsCache = [];
-let filterSelectedOnly = false;
-
-const el = (id) => document.getElementById(id);
-
-const personBox = el("personBox");
-const radioBox = el("radioBox");
-const msg = el("msg");
-const assignmentsBody = el("assignmentsBody");
-const missingList = el("missingList");
-
-const sExpected = el("sExpected");
-const sAssigned = el("sAssigned");
-const sMissing = el("sMissing");
-const sPeople = el("sPeople");
-
-const scanInput = el("scanInput");
-const scanModePill = el("scanMode");
-
-const btnScanPerson = el("btnScanPerson");
-const btnScanRadio = el("btnScanRadio");
-const btnScanInventory = el("btnScanInventory");
-const btnManualPerson = el("btnManualPerson");
-const btnManualRadio = el("btnManualRadio");
-
-const expectedText = el("expectedText");
-const btnImportExpected = el("btnImportExpected");
-const importMsg = el("importMsg");
-
-const searchPersonInput = el("searchPersonInput");
-const btnSearchPerson = el("btnSearchPerson");
-const btnClearSearch = el("btnClearSearch");
-const searchResults = el("searchResults");
-
-const toggleFilterSelected = el("toggleFilterSelected");
-const filterInfo = el("filterInfo");
-
-const btnDeleteSelectedPerson = el("btnDeleteSelectedPerson");
-const deleteRadioInput = el("deleteRadioInput");
-const btnDeleteRadio = el("btnDeleteRadio");
-
-const expectedBody = el("expectedBody");
-const expectedSearchInput = el("expectedSearchInput");
-const btnClearExpectedSearch = el("btnClearExpectedSearch");
-const expectedCount = el("expectedCount");
-
-const actionModal = el("actionModal");
-const modalText = el("modalText");
-const btnModalClose = el("btnModalClose");
-const btnModalUnassign = el("btnModalUnassign");
-const btnModalReassign = el("btnModalReassign");
-const btnModalCancel = el("btnModalCancel");
-
-const btnToggleTheme = el("btnToggleTheme");
-const btnScanQr = el("btnScanQr");
-const btnExportExcel = el("btnExportExcel");
-
-const qrModal = el("qrModal");
-const btnQrClose = el("btnQrClose");
-const btnQrStart = el("btnQrStart");
-const btnQrStop = el("btnQrStop");
-const qrVideo = el("qrVideo");
-const qrMsg = el("qrMsg");
-
-const groupNameInput = el("groupNameInput");
-const btnAddGroup = el("btnAddGroup");
-const groupsBody = el("groupsBody");
-const groupsCount = el("groupsCount");
-const peopleGroupsBody = el("peopleGroupsBody");
-
-let scanMode = null;
-let modalRadioCode = null;
-
-// ZXing
-let qrCodeReader = null;
-let qrStreamActive = false;
-
-function setMessage(text, kind = "") {
-  msg.className = "msg " + (kind || "");
-  msg.textContent = text || "";
+:root{
+  --bg:#0b0f17;
+  --card:#121a28;
+  --text:#e9eef7;
+  --muted:#9fb0c9;
+  --border:#22314a;
+  --ok:#7be495;
+  --bad:#ff7b7b;
 }
 
-function setPersonBox() {
-  if (!selectedPerson) {
-    personBox.textContent = "Ninguna";
-    personBox.classList.add("muted");
-  } else {
-    const groupLabel = selectedPerson.groupName ? ` — ${selectedPerson.groupName}` : "";
-    personBox.textContent = `${selectedPerson.name} — ${selectedPerson.rut}${groupLabel}`;
-    personBox.classList.remove("muted");
-  }
-  renderAssignmentsFromCache();
+body.light{
+  --bg:#f5f7fb;
+  --card:#ffffff;
+  --text:#101828;
+  --muted:#5b6b86;
+  --border:#d0d7e2;
+  --ok:#1f9d55;
+  --bad:#d92d20;
 }
 
-function setRadioBox() {
-  if (!lastRadio) {
-    radioBox.textContent = "Ninguna";
-    radioBox.classList.add("muted");
-  } else {
-    radioBox.textContent = String(lastRadio);
-    radioBox.classList.remove("muted");
-  }
+*{ box-sizing:border-box; }
+
+body{
+  margin:0;
+  font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+  background: var(--bg);
+  color:var(--text);
 }
 
-async function api(path, opts) {
-  const res = await fetch(API + path, {
-    headers: { "Content-Type": "application/json" },
-    ...opts
-  });
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) {
-    const err = new Error(data.error || `Error ${res.status}`);
-    err.payload = data;
-    err.status = res.status;
-    throw err;
-  }
-  return data;
+.container{ max-width:1100px; margin:0 auto; padding:18px; }
+h1{ margin:8px 0 6px; font-size: 26px; }
+h2{ margin:0; font-size: 18px; }
+.muted{ color:var(--muted); }
+.small{ font-size:12px; }
+
+.grid{
+  display:grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap:14px;
+}
+.card{
+  background: rgba(18, 26, 40, 0.9);
+  border:1px solid var(--border);
+  border-radius:16px;
+  padding:14px;
+  box-shadow: 0 10px 25px rgba(0,0,0,.25);
+}
+.wide{ grid-column: 1 / -1; }
+
+.row{ display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
+button{
+  border:1px solid var(--border);
+  background:#1a2a45;
+  color:var(--text);
+  padding:10px 12px;
+  border-radius:12px;
+  cursor:pointer;
+}
+button:hover{ filter:brightness(1.08); }
+button.secondary{ background: transparent; }
+button.danger{
+  background: rgba(255, 123, 123, 0.12);
+  border-color: rgba(255, 123, 123, 0.35);
 }
 
-function escapeHtml(s) {
-  return String(s)
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#039;");
+.selected{ margin-top:12px; }
+.label{ font-size:12px; color:var(--muted); margin-bottom:6px; }
+.box{
+  border:1px dashed var(--border);
+  border-radius:12px;
+  padding:10px;
+  min-height:40px;
 }
 
-function normalizeRut(rut) {
-  const s = String(rut || "").trim().replace(/\s+/g, "").replaceAll("'", "-");
-  const m = s.match(/^([0-9]{7,8})[-]([0-9Kk])$/);
-  if (!m) return s;
-  return `${m[1]}-${String(m[2]).toUpperCase()}`;
+.msg{ margin-top:12px; min-height:20px; }
+.msg.ok{ color:var(--ok); }
+.msg.bad{ color:var(--bad); }
+
+.stats{ display:grid; grid-template-columns: repeat(4, 1fr); gap:10px; margin-top:12px; }
+.stat{
+  border:1px solid var(--border);
+  border-radius:14px;
+  padding:10px;
+  background: rgba(0,0,0,.15);
+}
+.stat .k{ color:var(--muted); font-size:12px; }
+.stat .v{ font-size:22px; font-weight:700; margin-top:2px; }
+
+.tableWrap{ overflow:auto; border-radius:12px; border:1px solid var(--border); margin-top:10px; }
+table{ width:100%; border-collapse: collapse; min-width: 980px; }
+th, td{ padding:10px; border-bottom:1px solid rgba(34,49,74,.6); text-align:left; vertical-align: middle; }
+th{ color:var(--muted); font-weight:600; background: rgba(0,0,0,.18); }
+
+.chips{ display:flex; flex-wrap:wrap; gap:8px; margin-top:10px; }
+.chip{
+  padding:6px 10px;
+  border-radius:999px;
+  border:1px solid var(--border);
+  background: rgba(0,0,0,.18);
 }
 
-function formatLocalDate(isoString) {
-  if (!isoString) return "";
-  const d = new Date(isoString);
-  if (Number.isNaN(d.getTime())) return isoString;
-  return new Intl.DateTimeFormat(undefined, {
-    year: "numeric", month: "2-digit", day: "2-digit",
-    hour: "2-digit", minute: "2-digit", second: "2-digit"
-  }).format(d);
+textarea{
+  width:100%;
+  margin-top:10px;
+  padding:10px;
+  border-radius:12px;
+  border:1px solid var(--border);
+  background: rgba(0,0,0,.25);
+  color: var(--text);
+}
+details.hint summary{ cursor:pointer; color: var(--muted); }
+
+/* ---- Inputs (genérico) ---- */
+input{
+  padding:12px;
+  border-radius:12px;
+  border:1px solid var(--border);
+  background: rgba(0,0,0,.25);
+  color: var(--text);
+  outline:none;
 }
 
-function normalizeRadioCode(raw) {
-  let s = String(raw ?? "");
-  s = s.replace(/\u0000/g, "");
-  s = s.replace(/\r?\n/g, " ");
-  s = s.trim();
-  s = s.replace(/^(\s*(S\/N|SN|SERIAL|SERIE|S\.N)\s*[:=]?\s*)/i, "");
-  s = s.replace(/[^a-z0-9]/gi, "");
-  s = s.toUpperCase();
-  return s;
+/* ---- Escáner tipo teclado ---- */
+.scanLine{
+  display:flex;
+  gap:10px;
+  align-items:center;
+  margin-top:10px;
+}
+.scanLine input{ flex:1; }
+.pill{
+  border:1px solid var(--border);
+  padding:8px 10px;
+  border-radius:999px;
+  color: var(--muted);
+  white-space: nowrap;
 }
 
-function normalizeRadioId(raw) {
-  return String(raw ?? "").trim().toUpperCase();
+/* ---- Buscador ---- */
+.searchBox{
+  margin-top:14px;
+  border-top: 1px solid rgba(34,49,74,.6);
+  padding-top: 12px;
+}
+.results{
+  margin-top:10px;
+  display:flex;
+  flex-direction:column;
+  gap:8px;
+}
+.resultItem{
+  border:1px solid var(--border);
+  background: rgba(0,0,0,.18);
+  border-radius:12px;
+  padding:10px;
+  cursor:pointer;
+}
+.resultItem:hover{ filter:brightness(1.08); }
+.resultItem .top{ display:flex; justify-content:space-between; gap:10px; }
+.resultItem .rut{ color: var(--muted); font-size: 12px; }
+.resultItem .name{ font-weight: 700; }
+
+/* ---- Select de reasignación ---- */
+.selectRow{
+  display:flex;
+  gap:8px;
+  align-items:center;
+}
+select{
+  padding:10px;
+  border-radius:12px;
+  border:1px solid var(--border);
+  background: rgba(0,0,0,.25);
+  color: var(--text);
+  outline:none;
+  min-width: 220px;
 }
 
-function extractRutFromScan(raw) {
-  const text0 = String(raw || "").trim();
-  if (!text0) return null;
-
-  const m0 = text0.match(/([0-9]{7,8})\s*[-']\s*([0-9Kk])/);
-  if (m0) return `${m0[1]}-${String(m0[2]).toUpperCase()}`;
-
-  let t = text0;
-  t = t.replaceAll("Ñ", ":");
-  t = t.replaceAll("--", "//");
-  t = t.replaceAll("_", "?");
-  t = t.replaceAll("¿", "=");
-  t = t.replaceAll("'", "-");
-
-  const qIdx = t.indexOf("?");
-  if (qIdx >= 0) {
-    const base = t.slice(0, qIdx + 1);
-    const qs = t.slice(qIdx + 1).replaceAll("/", "&");
-    t = base + qs;
-  }
-
-  const m = t.match(/RUN[^0-9Kk]*([0-9]{7,8})[^0-9Kk]*([0-9Kk])/i);
-  if (m) return `${m[1]}-${String(m[2]).toUpperCase()}`;
-  return null;
+/* ---- Header tabla + toggle ---- */
+.tableHeader{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  gap:12px;
+  flex-wrap: wrap;
+}
+.toggle{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  color: var(--muted);
+  font-size: 13px;
+  user-select:none;
+}
+.toggle input{
+  width: 18px;
+  height: 18px;
 }
 
-// --------------------
-// Tema claro / oscuro
-// --------------------
-function applyTheme(mode) {
-  if (mode === "light") document.body.classList.add("light");
-  else document.body.classList.remove("light");
-  localStorage.setItem("theme", mode);
+/* ---- Admin box ---- */
+.adminBox{
+  margin-top:10px;
+  border:1px solid rgba(34,49,74,.6);
+  background: rgba(0,0,0,.16);
+  border-radius:14px;
+  padding:10px;
 }
 
-(function initTheme() {
-  const saved = localStorage.getItem("theme");
-  if (saved) return applyTheme(saved);
+/* ---- Modal ---- */
+.modal{
+  position:fixed;
+  inset:0;
+  background: rgba(0,0,0,.65);
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  padding:16px;
+  z-index: 999;
+}
+.hidden{ display:none; }
+.modalCard{
+  width:min(720px, 100%);
+  background: rgba(18, 26, 40, 0.98);
+  border:1px solid var(--border);
+  border-radius:18px;
+  padding:12px;
+  box-shadow: 0 20px 60px rgba(0,0,0,.45);
+}
+.modalHead{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  gap:10px;
+  margin-bottom:10px;
+}
+.modalTitle{ font-weight:800; }
+.modalText{
+  border:1px solid rgba(34,49,74,.6);
+  background: rgba(0,0,0,.18);
+  border-radius:14px;
+  padding:12px;
+  white-space: pre-wrap;
+  margin-bottom:12px;
+}
+.modalActions{ margin-bottom:10px; }
 
-  const prefersLight = window.matchMedia && window.matchMedia("(prefers-color-scheme: light)").matches;
-  applyTheme(prefersLight ? "light" : "dark");
-})();
-
-btnToggleTheme?.addEventListener("click", () => {
-  const isLight = document.body.classList.contains("light");
-  applyTheme(isLight ? "dark" : "light");
-});
-
-// ---------- Radio ID ----------
-async function getRadioIdForCode(code) {
-  try {
-    const r = await api(`/api/radios/id/get?radioCode=${encodeURIComponent(code)}`);
-    return r.radioId || "";
-  } catch {
-    return "";
-  }
+@media (max-width: 900px){
+  .grid{ grid-template-columns: 1fr; }
+  .stats{ grid-template-columns: repeat(2, 1fr); }
+  table{ min-width: 900px; }
 }
 
-async function setRadioIdForCode(code, radioId) {
-  return api("/api/radios/id/set", {
-    method: "POST",
-    body: JSON.stringify({ radioCode: code, radioId })
-  });
+/* Tabla compacta (radios esperadas) */
+#expectedSearchInput{
+  min-width: 240px;
 }
 
-async function maybeAskRadioId(code) {
-  const current = await getRadioIdForCode(code);
-  if (current) return current;
-
-  const wants = window.confirm(
-    `La radio ${code} no tiene ID Radio.\n\n¿Quieres asignarle uno ahora?`
-  );
-  if (!wants) return "";
-
-  const typed = prompt(`ID Radio para ${code}\nEjemplo: 010`, "");
-  if (typed === null) return "";
-
-  const radioId = normalizeRadioId(typed);
-  if (!radioId) return "";
-
-  await setRadioIdForCode(code, radioId);
-  setMessage(`ID Radio ${radioId} guardado para ${code}.`, "ok");
-  return radioId;
+.okTag{
+  display:inline-block;
+  padding:4px 8px;
+  border-radius:999px;
+  border:1px solid rgba(123,228,149,.35);
+  background: rgba(123,228,149,.12);
+  color: #7be495;
+  font-size: 12px;
+  font-weight: 700;
 }
 
-// ---------- Modal radio ya asignada ----------
-function openActionModal(radioCode, assignedInfo) {
-  modalRadioCode = radioCode;
 
-  const current = selectedPerson ? `${selectedPerson.name} (${selectedPerson.rut})` : "(no hay persona seleccionada)";
-  const idLine = assignedInfo.radioId ? `ID Radio: ${assignedInfo.radioId}\n` : "";
-
-  modalText.textContent =
-    `La radio ${assignedInfo.radio_code} ya está asignada a:\n` +
-    `${assignedInfo.name} (${assignedInfo.rut})\n` +
-    idLine +
-    `Fecha: ${formatLocalDate(assignedInfo.assigned_at)}\n\n` +
-    `Persona actual seleccionada: ${current}\n\n` +
-    `¿Qué quieres hacer?`;
-
-  btnModalReassign.disabled = !selectedPerson;
-  actionModal.classList.remove("hidden");
-}
-
-function closeActionModal() {
-  actionModal.classList.add("hidden");
-  modalRadioCode = null;
-}
-
-btnModalClose.addEventListener("click", closeActionModal);
-btnModalCancel.addEventListener("click", closeActionModal);
-
-btnModalUnassign.addEventListener("click", async () => {
-  if (!modalRadioCode) return;
-  try {
-    await api("/api/unassign", { method: "POST", body: JSON.stringify({ radioCode: modalRadioCode }) });
-    setMessage(`Desasignada: radio ${modalRadioCode} quedó libre.`, "ok");
-    await refreshAll();
-  } catch (e) {
-    setMessage(e.message, "bad");
-  } finally {
-    closeActionModal();
-    scanInput.focus();
-  }
-});
-
-btnModalReassign.addEventListener("click", async () => {
-  if (!modalRadioCode || !selectedPerson) return;
-  try {
-    await api("/api/reassign", {
-      method: "POST",
-      body: JSON.stringify({ radioCode: modalRadioCode, newRut: selectedPerson.rut })
-    });
-    await maybeAskRadioId(modalRadioCode);
-    setMessage(`Radio ${modalRadioCode} reasignada a ${selectedPerson.name}.`, "ok");
-    await refreshAll();
-  } catch (e) {
-    setMessage(e.message, "bad");
-  } finally {
-    closeActionModal();
-    scanInput.focus();
-  }
-});
-
-// ---------- Refresh ----------
-async function refreshAll() {
-  const [summary, assignments, missing, people, expected, groups] = await Promise.all([
-    api("/api/summary"),
-    api("/api/assignments"),
-    api("/api/radios/missing"),
-    api("/api/people/list"),
-    api("/api/radios/expected"),
-    api("/api/groups")
-  ]);
-
-  peopleCache = people;
-  assignmentsCache = assignments;
-  expectedCache = expected;
-  groupsCache = groups;
-
-  sExpected.textContent = summary.expected;
-  sAssigned.textContent = summary.assigned;
-  sMissing.textContent = summary.missing;
-  sPeople.textContent = summary.people;
-
-  renderGroups();
-  renderPeopleGroups();
-  renderExpectedFromCache();
-  renderAssignmentsFromCache();
-
-  missingList.innerHTML = missing.length
-    ? missing.map(code => `<span class="chip">${escapeHtml(code)}</span>`).join("")
-    : `<span class="muted">No faltan radios 🎉</span>`;
-}
-
-// ---------- Groups ----------
-function renderGroups() {
-  groupsCount.textContent = `Mostrando ${groupsCache.length} grupos.`;
-
-  if (!groupsCache.length) {
-    groupsBody.innerHTML = `<tr><td class="muted" colspan="2">Sin grupos</td></tr>`;
-    return;
-  }
-
-  groupsBody.innerHTML = groupsCache.map(groupName => `
-    <tr>
-      <td>${escapeHtml(groupName)}</td>
-      <td><button class="danger deleteGroupBtn" data-group="${escapeHtml(groupName)}">Eliminar</button></td>
-    </tr>
-  `).join("");
-
-  groupsBody.querySelectorAll(".deleteGroupBtn").forEach(btn => {
-    btn.addEventListener("click", async () => {
-      const groupName = btn.getAttribute("data-group");
-      const ok = window.confirm(`¿Eliminar el grupo "${groupName}"?\nLas personas quedarán sin grupo.`);
-      if (!ok) return;
-
-      try {
-        await api("/api/groups/delete", {
-          method: "POST",
-          body: JSON.stringify({ groupName })
-        });
-        setMessage(`Grupo eliminado: ${groupName}`, "ok");
-        await refreshAll();
-      } catch (e) {
-        setMessage(e.message, "bad");
-      }
-    });
-  });
-}
-
-btnAddGroup?.addEventListener("click", async () => {
-  const groupName = (groupNameInput.value || "").trim();
-  if (!groupName) return setMessage("Escribe un nombre de grupo.", "bad");
-
-  try {
-    const r = await api("/api/groups/add", {
-      method: "POST",
-      body: JSON.stringify({ groupName })
-    });
-    groupNameInput.value = "";
-    setMessage(r.added ? `Grupo creado: ${r.groupName}` : `El grupo ${r.groupName} ya existía.`, "ok");
-    await refreshAll();
-  } catch (e) {
-    setMessage(e.message, "bad");
-  }
-});
-
-function groupOptionsHtml(selectedGroup) {
-  const base = `<option value="" ${!selectedGroup ? "selected" : ""}>(sin grupo)</option>`;
-  const rest = groupsCache.map(g => {
-    const sel = g === selectedGroup ? "selected" : "";
-    return `<option value="${escapeHtml(g)}" ${sel}>${escapeHtml(g)}</option>`;
-  }).join("");
-  return base + rest;
-}
-
-function renderPeopleGroups() {
-  if (!peopleCache.length) {
-    peopleGroupsBody.innerHTML = `<tr><td class="muted" colspan="4">Sin personas</td></tr>`;
-    return;
-  }
-
-  peopleGroupsBody.innerHTML = peopleCache.map(p => `
-    <tr>
-      <td>${escapeHtml(p.name)}</td>
-      <td>${escapeHtml(p.rut)}</td>
-      <td>
-        <select class="personGroupSelect" data-rut="${escapeHtml(p.rut)}">
-          ${groupOptionsHtml(p.groupName || "")}
-        </select>
-      </td>
-      <td>
-        <button class="secondary savePersonGroupBtn" data-rut="${escapeHtml(p.rut)}">Guardar</button>
-      </td>
-    </tr>
-  `).join("");
-
-  peopleGroupsBody.querySelectorAll(".savePersonGroupBtn").forEach(btn => {
-    btn.addEventListener("click", async () => {
-      const rut = btn.getAttribute("data-rut");
-      const sel = peopleGroupsBody.querySelector(`select.personGroupSelect[data-rut="${CSS.escape(rut)}"]`);
-      const groupName = sel?.value || "";
-
-      try {
-        await api("/api/people/set-group", {
-          method: "POST",
-          body: JSON.stringify({ rut, groupName })
-        });
-
-        const p = peopleCache.find(x => x.rut === rut);
-        if (selectedPerson && selectedPerson.rut === rut) {
-          selectedPerson.groupName = groupName;
-          setPersonBox();
-        }
-
-        setMessage(`Grupo guardado para ${p?.name || rut}.`, "ok");
-        await refreshAll();
-      } catch (e) {
-        setMessage(e.message, "bad");
-      }
-    });
-  });
-}
-
-// ---------- Radios esperadas ----------
-function getExpectedFiltered() {
-  const q = (expectedSearchInput.value || "").trim().toLowerCase();
-  if (!q) return expectedCache;
-  return expectedCache.filter(c => String(c).toLowerCase().includes(q));
-}
-
-function buildAssignmentMap() {
-  const map = new Map();
-  for (const a of assignmentsCache) map.set(a.radio_code, a);
-  return map;
-}
-
-function renderExpectedFromCache() {
-  const list = getExpectedFiltered();
-  expectedCount.textContent = `Mostrando ${list.length} de ${expectedCache.length} radios esperadas.`;
-
-  if (!list.length) {
-    expectedBody.innerHTML = `<tr><td class="muted" colspan="3">Sin radios</td></tr>`;
-    return;
-  }
-
-  const aMap = buildAssignmentMap();
-
-  expectedBody.innerHTML = list.map(code => {
-    const a = aMap.get(code);
-
-    if (a) {
-      const groupLabel = a.groupName ? ` — ${a.groupName}` : "";
-      const idLine = a.radioId ? ` · ID ${a.radioId}` : "";
-      return `
-        <tr>
-          <td>${escapeHtml(code)}</td>
-          <td>
-            <span class="okTag">Asignada</span><br>
-            <span class="muted small">${escapeHtml(a.name)} (${escapeHtml(a.rut)})${escapeHtml(groupLabel)}${escapeHtml(idLine)}</span>
-          </td>
-          <td>
-            <button class="danger expectedDeleteBtn" data-code="${escapeHtml(code)}">Eliminar</button>
-          </td>
-        </tr>
-      `;
-    }
-
-    return `
-      <tr>
-        <td>${escapeHtml(code)}</td>
-        <td><span class="muted">Libre</span></td>
-        <td>
-          <button class="danger expectedDeleteBtn" data-code="${escapeHtml(code)}">Eliminar</button>
-        </td>
-      </tr>
-    `;
-  }).join("");
-
-  expectedBody.querySelectorAll(".expectedDeleteBtn").forEach(btn => {
-    btn.addEventListener("click", async () => {
-      const code = btn.getAttribute("data-code");
-      const ok = window.confirm(`¿Eliminar la radio "${code}" de las esperadas?\nSi está asignada, también se desasignará.`);
-      if (!ok) return;
-
-      try {
-        await api("/api/radios/expected/delete", {
-          method: "POST",
-          body: JSON.stringify({ radioCode: code })
-        });
-        setMessage(`Radio ${code} eliminada de esperadas.`, "ok");
-        await refreshAll();
-      } catch (e) {
-        setMessage(e.message, "bad");
-      } finally {
-        scanInput.focus();
-      }
-    });
-  });
-}
-
-expectedSearchInput.addEventListener("input", () => renderExpectedFromCache());
-btnClearExpectedSearch.addEventListener("click", () => {
-  expectedSearchInput.value = "";
-  renderExpectedFromCache();
-  scanInput.focus();
-});
-
-// ---------- Asignaciones ----------
-function peopleOptionsHtml(selectedRut) {
-  if (!peopleCache.length) return `<option value="">(sin personas)</option>`;
-  return peopleCache.map(p => {
-    const groupLabel = p.groupName ? ` — ${p.groupName}` : "";
-    const sel = p.rut === selectedRut ? "selected" : "";
-    return `<option value="${escapeHtml(p.rut)}" ${sel}>${escapeHtml(`${p.name} — ${p.rut}${groupLabel}`)}</option>`;
-  }).join("");
-}
-
-function getFilteredAssignments() {
-  if (!filterSelectedOnly) return assignmentsCache;
-  if (!selectedPerson) return [];
-  return assignmentsCache.filter(a => a.rut === selectedPerson.rut);
-}
-
-function updateFilterInfo(list) {
-  if (!filterSelectedOnly) { filterInfo.textContent = ""; return; }
-  if (!selectedPerson) { filterInfo.textContent = "Filtro activo, pero no hay persona seleccionada (0 filas)."; return; }
-  filterInfo.textContent = `Filtro activo: mostrando ${list.length} radios de ${selectedPerson.name} (${selectedPerson.rut}).`;
-}
-
-function renderAssignmentsFromCache() {
-  const list = getFilteredAssignments();
-  updateFilterInfo(list);
-
-  assignmentsBody.innerHTML = list.map(r => `
-    <tr>
-      <td>${escapeHtml(r.radio_code)}</td>
-      <td>${escapeHtml(r.radioId || "")}</td>
-      <td>${escapeHtml(r.rut)}</td>
-      <td>${escapeHtml(r.name)}</td>
-      <td>${escapeHtml(r.groupName || "")}</td>
-      <td>${escapeHtml(formatLocalDate(r.assigned_at))}</td>
-      <td>
-        <div class="selectRow">
-          <button class="danger unassignBtn" data-radio="${escapeHtml(r.radio_code)}">Desasignar</button>
-        </div>
-      </td>
-      <td>
-        <div class="selectRow">
-          <select data-radio="${escapeHtml(r.radio_code)}" class="reassignSelect">
-            ${peopleOptionsHtml(r.rut)}
-          </select>
-          <button class="secondary reassignBtn" data-radio="${escapeHtml(r.radio_code)}">Reasignar</button>
-        </div>
-      </td>
-    </tr>
-  `).join("");
-
-  assignmentsBody.querySelectorAll(".unassignBtn").forEach(btn => {
-    btn.addEventListener("click", async () => {
-      const radio = btn.getAttribute("data-radio");
-      if (!window.confirm(`¿Desasignar la radio ${radio}? Quedará libre.`)) return;
-      try {
-        await api("/api/unassign", { method: "POST", body: JSON.stringify({ radioCode: radio }) });
-        setMessage(`Desasignada: radio ${radio} quedó libre.`, "ok");
-        await refreshAll();
-      } catch (e) {
-        setMessage(e.message, "bad");
-      } finally {
-        scanInput.focus();
-      }
-    });
-  });
-
-  assignmentsBody.querySelectorAll(".reassignBtn").forEach(btn => {
-    btn.addEventListener("click", async () => {
-      const radio = btn.getAttribute("data-radio");
-      const sel = assignmentsBody.querySelector(`select.reassignSelect[data-radio="${CSS.escape(radio)}"]`);
-      const newRut = sel?.value;
-      if (!newRut) return setMessage("Selecciona una persona destino.", "bad");
-
-      try {
-        await api("/api/reassign", { method: "POST", body: JSON.stringify({ radioCode: radio, newRut }) });
-        await maybeAskRadioId(radio);
-        const p = peopleCache.find(x => x.rut === newRut);
-        setMessage(`Radio ${radio} reasignada a ${p?.name || newRut}.`, "ok");
-        await refreshAll();
-      } catch (e) {
-        setMessage(e.message, "bad");
-      } finally {
-        scanInput.focus();
-      }
-    });
-  });
-}
-
-// ---------- Persona ----------
-async function selectPersonByRut(rut) {
-  const r = normalizeRut(rut);
-
-  try {
-    const p = await api(`/api/people/get?rut=${encodeURIComponent(r)}`);
-    selectedPerson = { rut: p.rut, name: p.name, groupName: p.groupName || "" };
-    setPersonBox();
-    setMessage(`Persona seleccionada: ${p.name} (${p.rut})`, "ok");
-    return;
-  } catch {}
-
-  const name = prompt(`Nombre para ${r} (solo la primera vez):`);
-  if (!name) return setMessage("Cancelado. No se guardó persona.", "bad");
-
-  const person = await api("/api/people/upsert", { method: "POST", body: JSON.stringify({ rut: r, name: name.trim() }) });
-  selectedPerson = { rut: person.rut, name: person.name, groupName: person.groupName || "" };
-  setPersonBox();
-  setMessage(`Persona creada: ${person.name} (${person.rut})`, "ok");
-  await refreshAll();
-}
-
-// ---------- Radios ----------
-async function addRadioToInventory(radioCode) {
-  const code = normalizeRadioCode(radioCode);
-  if (!code) return;
-
-  lastRadio = code;
-  setRadioBox();
-
-  try {
-    const r = await api("/api/radios/expected/add", {
-      method: "POST",
-      body: JSON.stringify({ radioCode: code })
-    });
-
-    await maybeAskRadioId(code);
-
-    setMessage(r.added ? `Inventario: agregada radio ${code}.` : `Inventario: radio ${code} ya existía.`, "ok");
-    await refreshAll();
-  } catch (e) {
-    setMessage(e.message, "bad");
-  }
-}
-
-async function assignRadioToSelectedPerson(radioCode) {
-  if (!selectedPerson) {
-    setMessage("No hay persona seleccionada. Usa “Modo Inventario” para solo agregar radios.", "bad");
-    return;
-  }
-
-  const code = normalizeRadioCode(radioCode);
-  if (!code) return;
-
-  lastRadio = code;
-  setRadioBox();
-
-  try {
-    await api("/api/assign", {
-      method: "POST",
-      body: JSON.stringify({ rut: selectedPerson.rut, radioCode: code })
-    });
-
-    await maybeAskRadioId(code);
-
-    setMessage(`Asignada radio ${code} a ${selectedPerson.name}`, "ok");
-    await refreshAll();
-  } catch (e) {
-    if (e.status === 409 && e.payload?.alreadyAssigned) {
-      openActionModal(code, e.payload.alreadyAssigned);
-      return;
-    }
-    setMessage(e.message, "bad");
-  }
-}
-
-// ---------- Modos ----------
-btnScanPerson.addEventListener("click", () => {
-  scanMode = "person";
-  scanModePill.textContent = "Modo: Carnet";
-  scanInput.value = "";
-  scanInput.focus();
-  setMessage("Listo: escanea el carnet ahora.", "ok");
-});
-
-btnScanRadio.addEventListener("click", () => {
-  scanMode = "radio_assign";
-  scanModePill.textContent = "Modo: Radio (Asignar)";
-  scanInput.value = "";
-  scanInput.focus();
-  setMessage("Listo: escanea radios para ASIGNAR (requiere persona).", "ok");
-});
-
-btnScanInventory.addEventListener("click", () => {
-  scanMode = "radio_inventory";
-  scanModePill.textContent = "Modo: Inventario";
-  scanInput.value = "";
-  scanInput.focus();
-  setMessage("Listo: escanea radios para AGREGAR al inventario (sin persona).", "ok");
-});
-
-scanInput.addEventListener("keydown", async (e) => {
-  if (e.key !== "Enter") return;
-  const text = scanInput.value.trim();
-  if (!text) return;
-
-  try {
-    if (scanMode === "person") {
-      const rut = extractRutFromScan(text);
-      if (!rut) setMessage("No pude extraer el RUT del carnet.", "bad");
-      else await selectPersonByRut(rut);
-    } else if (scanMode === "radio_assign") {
-      await assignRadioToSelectedPerson(text);
-    } else if (scanMode === "radio_inventory") {
-      await addRadioToInventory(text);
-    } else {
-      setMessage("Elige modo: Carnet, Radio (Asignar) o Inventario.", "bad");
-    }
-  } finally {
-    scanInput.value = "";
-    scanInput.focus();
-  }
-});
-
-// ---------- Filtro ----------
-toggleFilterSelected.addEventListener("change", () => {
-  filterSelectedOnly = !!toggleFilterSelected.checked;
-  renderAssignmentsFromCache();
-  scanInput.focus();
-});
-
-// ---------- Buscador persona ----------
-function renderResults(list) {
-  if (!list.length) {
-    searchResults.className = "results muted";
-    searchResults.textContent = "Sin resultados";
-    return;
-  }
-
-  searchResults.className = "results";
-  searchResults.innerHTML = list.map(p => `
-    <div class="resultItem" data-rut="${escapeHtml(p.rut)}" data-name="${escapeHtml(p.name)}" data-group="${escapeHtml(p.groupName || "")}">
-      <div class="top">
-        <div class="name">${escapeHtml(p.name)}</div>
-        <div class="rut">${escapeHtml(p.rut)}</div>
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Demo Radios - Escáner</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header class="container">
+    <div class="row" style="justify-content:space-between; align-items:center; gap:12px;">
+      <div>
+        <h1 style="margin:0;">Demo: Asignación de Radios por Escaneo</h1>
+        <p class="muted" style="margin:8px 0 0;">
+          Flujo: (1) Carnet → (2) Radio. O usa “Inventario” para cargar radios sin carnet.
+        </p>
       </div>
-      <div class="muted small">${escapeHtml(p.groupName || "(sin grupo)")}</div>
+
+      <div class="row">
+        <button id="btnExportExcel" class="secondary">📊 Exportar Excel</button>
+        <button id="btnToggleTheme" class="secondary" title="Cambiar tema">🌙/☀️ Tema</button>
+      </div>
     </div>
-  `).join("");
+  </header>
 
-  searchResults.querySelectorAll(".resultItem").forEach(item => {
-    item.addEventListener("click", () => {
-      const rut = item.getAttribute("data-rut");
-      const name = item.getAttribute("data-name");
-      const groupName = item.getAttribute("data-group") || "";
-      selectedPerson = { rut, name, groupName };
-      setPersonBox();
-      setMessage(`Persona seleccionada: ${name} (${rut})`, "ok");
-      scanInput.focus();
-    });
-  });
-}
+  <main class="container grid">
+    <section class="card">
+      <h2>1) Persona (Carnet)</h2>
 
-async function doSearch() {
-  const q = (searchPersonInput.value || "").trim();
-  if (!q) return renderResults([]);
+      <div class="row">
+        <button id="btnScanPerson">⌁ Modo Carnet</button>
+        <button id="btnScanQr" class="secondary">📷 Escanear Carnet (cámara)</button>
+        <button class="secondary" id="btnManualPerson">⌨️ Crear/Editar persona</button>
+      </div>
 
-  try {
-    const list = await api(`/api/people/search?q=${encodeURIComponent(q)}`);
-    renderResults(list);
-  } catch (e) {
-    renderResults([]);
-    setMessage(e.message, "bad");
-  }
-}
+      <div class="scanLine">
+        <input id="scanInput" placeholder="Escanea aquí (carnet o radio)..." autocomplete="off" />
+        <span id="scanMode" class="pill">Modo: -</span>
+      </div>
 
-btnSearchPerson.addEventListener("click", doSearch);
-searchPersonInput.addEventListener("keydown", (e) => { if (e.key === "Enter") doSearch(); });
-btnClearSearch.addEventListener("click", () => {
-  searchPersonInput.value = "";
-  renderResults([]);
-  scanInput.focus();
-});
+      <div class="selected">
+        <div class="label">Persona seleccionada</div>
+        <div id="personBox" class="box muted">Ninguna</div>
+      </div>
 
-// ---------- Manuales ----------
-btnManualPerson.addEventListener("click", async () => {
-  const rut = prompt("RUT (ej: 21632444-7):");
-  if (!rut) return;
-  const name = prompt("Nombre:");
-  if (!name) return;
+      <div class="searchBox">
+        <div class="label">Buscar persona por RUT o nombre</div>
+        <div class="row">
+          <input id="searchPersonInput" placeholder="Ej: 21632444-7 o Francisco" autocomplete="off" />
+          <button id="btnSearchPerson" class="secondary">Buscar</button>
+          <button id="btnClearSearch" class="secondary">Limpiar</button>
+        </div>
+        <div id="searchResults" class="results muted">Sin resultados</div>
+      </div>
 
-  try {
-    const person = await api("/api/people/upsert", {
-      method: "POST",
-      body: JSON.stringify({ rut: normalizeRut(rut), name: name.trim() })
-    });
-    selectedPerson = { rut: person.rut, name: person.name, groupName: person.groupName || "" };
-    setPersonBox();
-    setMessage(`Persona lista: ${person.name} (${person.rut})`, "ok");
-    await refreshAll();
-  } catch (e) {
-    setMessage(e.message, "bad");
-  }
-});
+      <details class="hint">
+        <summary>Administración</summary>
+        <div class="adminBox">
+          <div class="row">
+            <button id="btnDeleteSelectedPerson" class="danger">Eliminar persona seleccionada</button>
+          </div>
+          <div class="muted small">Eliminar persona también borra todas sus asignaciones.</div>
+        </div>
+      </details>
+    </section>
 
-btnManualRadio.addEventListener("click", async () => {
-  const code = prompt("Código de radio/producto:");
-  if (!code) return;
+    <section class="card">
+      <h2>2) Radios</h2>
 
-  if (scanMode === "radio_inventory") return addRadioToInventory(code);
-  return assignRadioToSelectedPerson(code);
-});
+      <div class="row">
+        <button id="btnScanRadio">⌁ Modo Radio (Asignar)</button>
+        <button id="btnScanInventory" class="secondary">📦 Modo Inventario (solo agregar radios)</button>
+        <button class="secondary" id="btnManualRadio">⌨️ Ingresar radio manual</button>
+      </div>
 
-// ---------- Import radios esperadas ----------
-btnImportExpected.addEventListener("click", async () => {
-  try {
-    const text = expectedText.value || "";
-    const r = await api("/api/radios/expected/import", {
-      method: "POST",
-      body: JSON.stringify({ codesText: text })
-    });
-    importMsg.textContent = `Importado: ${r.imported}`;
-    await refreshAll();
-  } catch (e) {
-    importMsg.textContent = e.message;
-  }
-});
+      <div class="selected">
+        <div class="label">Última radio escaneada</div>
+        <div id="radioBox" class="box muted">Ninguna</div>
+      </div>
 
-// ---------- Export Excel ----------
-btnExportExcel?.addEventListener("click", () => {
-  window.location.href = `${API}/api/export/excel`;
-});
+      <details class="hint">
+        <summary>Administración</summary>
+        <div class="adminBox">
+          <div class="label">Eliminar radio esperada (y desasignar si está asignada)</div>
+          <div class="row">
+            <input id="deleteRadioInput" placeholder="Código radio (ej: 001)" autocomplete="off" />
+            <button id="btnDeleteRadio" class="danger">Eliminar radio</button>
+          </div>
+        </div>
+      </details>
 
-// ---------- ADMIN ----------
-btnDeleteSelectedPerson.addEventListener("click", async () => {
-  if (!selectedPerson) return setMessage("No hay persona seleccionada para eliminar.", "bad");
+      <div id="msg" class="msg"></div>
+    </section>
 
-  const ok = window.confirm(
-    `¿Eliminar a ${selectedPerson.name} (${selectedPerson.rut})?\n\nEsto también borrará todas sus asignaciones.`
-  );
-  if (!ok) return;
+    <section class="card">
+      <h2>Resumen</h2>
+      <div class="stats">
+        <div class="stat"><div class="k">Esperadas</div><div id="sExpected" class="v">-</div></div>
+        <div class="stat"><div class="k">Asignadas</div><div id="sAssigned" class="v">-</div></div>
+        <div class="stat"><div class="k">Faltan</div><div id="sMissing" class="v">-</div></div>
+        <div class="stat"><div class="k">Personas</div><div id="sPeople" class="v">-</div></div>
+      </div>
 
-  try {
-    const r = await api("/api/people/delete", {
-      method: "POST",
-      body: JSON.stringify({ rut: selectedPerson.rut })
-    });
-    selectedPerson = null;
-    setPersonBox();
-    setMessage(`Persona eliminada. Asignaciones borradas: ${r.removedAssignments}`, "ok");
-    await refreshAll();
-  } catch (e) {
-    setMessage(e.message, "bad");
-  } finally {
-    scanInput.focus();
-  }
-});
+      <details class="hint">
+        <summary>Importar radios esperadas (1 por línea)</summary>
+        <textarea id="expectedText" rows="6" placeholder="001&#10;002&#10;003"></textarea>
+        <div class="row">
+          <button id="btnImportExpected" class="secondary">Importar</button>
+        </div>
+        <div id="importMsg" class="muted"></div>
+      </details>
+    </section>
 
-btnDeleteRadio.addEventListener("click", async () => {
-  const code = (deleteRadioInput.value || "").trim();
-  if (!code) return setMessage("Escribe el código de la radio a eliminar.", "bad");
+    <section class="card wide">
+      <div class="tableHeader">
+        <h2>Grupos</h2>
 
-  const ok = window.confirm(`¿Eliminar la radio "${code}" de las esperadas? Si está asignada, también se desasigna.`);
-  if (!ok) return;
+        <div class="row">
+          <input id="groupNameInput" placeholder="Nuevo grupo (ej: Seguridad)" autocomplete="off" />
+          <button id="btnAddGroup" class="secondary">Crear grupo</button>
+        </div>
+      </div>
 
-  try {
-    await api("/api/radios/expected/delete", {
-      method: "POST",
-      body: JSON.stringify({ radioCode: code })
-    });
-    deleteRadioInput.value = "";
-    setMessage(`Radio ${code} eliminada de esperadas.`, "ok");
-    await refreshAll();
-  } catch (e) {
-    setMessage(e.message, "bad");
-  } finally {
-    scanInput.focus();
-  }
-});
+      <div class="muted small" id="groupsCount">Cargando…</div>
 
-// ---------- Cámara carnet (ZXing, mejor para iPhone/Android) ----------
-function openQrModal() {
-  qrMsg.textContent = "";
-  qrModal.classList.remove("hidden");
-}
+      <div class="tableWrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Grupo</th>
+              <th>Acción</th>
+            </tr>
+          </thead>
+          <tbody id="groupsBody"></tbody>
+        </table>
+      </div>
+    </section>
 
-function closeQrModal() {
-  stopQrCamera();
-  qrModal.classList.add("hidden");
-}
+    <section class="card wide">
+      <div class="tableHeader">
+        <h2>Personas y grupos</h2>
+      </div>
 
-async function startQrCamera() {
-  qrMsg.textContent = "";
+      <div class="tableWrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Nombre</th>
+              <th>RUT</th>
+              <th>Grupo</th>
+              <th>Guardar</th>
+            </tr>
+          </thead>
+          <tbody id="peopleGroupsBody"></tbody>
+        </table>
+      </div>
+    </section>
 
-  if (!window.ZXing) {
-    qrMsg.textContent = "No se cargó la librería de escaneo.";
-    return;
-  }
+    <section class="card wide">
+      <div class="tableHeader">
+        <h2>Radios esperadas</h2>
 
-  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-    qrMsg.textContent = "Este navegador no soporta acceso a cámara.";
-    return;
-  }
+        <div class="row">
+          <input id="expectedSearchInput" placeholder="Buscar radio (ej: 015)" autocomplete="off" />
+          <button id="btnClearExpectedSearch" class="secondary">Limpiar</button>
+        </div>
+      </div>
 
-  try {
-    stopQrCamera();
+      <div class="muted small" id="expectedCount">Cargando…</div>
 
-    qrCodeReader = new ZXing.BrowserMultiFormatReader();
-    qrStreamActive = true;
+      <div class="tableWrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Código</th>
+              <th>Estado</th>
+              <th>Acción</th>
+            </tr>
+          </thead>
+          <tbody id="expectedBody"></tbody>
+        </table>
+      </div>
+    </section>
 
-    qrMsg.textContent = "Solicitando cámara...";
+    <section class="card wide">
+      <div class="tableHeader">
+        <h2>Asignaciones</h2>
 
-    await qrCodeReader.decodeFromConstraints(
-      {
-        audio: false,
-        video: {
-          facingMode: { ideal: "environment" },
-          width: { ideal: 1280 },
-          height: { ideal: 720 }
-        }
-      },
-      qrVideo,
-      async (result, err) => {
-        if (!qrStreamActive) return;
+        <label class="toggle">
+          <input id="toggleFilterSelected" type="checkbox" />
+          <span>Mostrar solo radios de la persona seleccionada</span>
+        </label>
+      </div>
 
-        if (result) {
-          const raw = result.getText ? result.getText() : String(result.text || "");
-          qrMsg.textContent = `Leído: ${raw}`;
+      <div id="filterInfo" class="muted small"></div>
 
-          const rut = extractRutFromScan(raw);
-          if (rut) {
-            try {
-              await selectPersonByRut(rut);
-              setMessage(`Carnet leído por cámara: ${rut}`, "ok");
-              closeQrModal();
-            } catch (e) {
-              setMessage(e.message, "bad");
-            }
-          }
-        }
-      }
-    );
+      <div class="tableWrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Radio</th>
+              <th>RUT</th>
+              <th>Nombre</th>
+              <th>Grupo</th>
+              <th>Fecha (hora local)</th>
+              <th>Acciones</th>
+              <th>Reasignar</th>
+            </tr>
+          </thead>
+          <tbody id="assignmentsBody"></tbody>
+        </table>
+      </div>
+    </section>
 
-    qrMsg.textContent = "Cámara activa. Apunta al carnet...";
-  } catch (e) {
-    console.error("ZXing camera error:", e);
-    qrMsg.textContent = `No se pudo iniciar la cámara: ${e?.message || e}`;
-  }
-}
+    <section class="card wide">
+      <h2>Radios faltantes</h2>
+      <div id="missingList" class="chips muted">Cargando…</div>
+    </section>
+  </main>
 
-function stopQrCamera() {
-  qrStreamActive = false;
+  <div id="actionModal" class="modal hidden">
+    <div class="modalCard">
+      <div class="modalHead">
+        <div class="modalTitle">Radio ya asignada</div>
+        <button id="btnModalClose" class="secondary">Cerrar</button>
+      </div>
 
-  try {
-    if (qrCodeReader?.reset) qrCodeReader.reset();
-  } catch {}
+      <div id="modalText" class="modalText"></div>
 
-  if (qrVideo) {
-    try { qrVideo.pause(); } catch {}
-    qrVideo.srcObject = null;
-  }
+      <div class="row modalActions">
+        <button id="btnModalUnassign" class="danger">Eliminar asignación</button>
+        <button id="btnModalReassign">Reasignar a persona actual</button>
+        <button id="btnModalCancel" class="secondary">Cancelar</button>
+      </div>
 
-  qrMsg.textContent = "Cámara detenida.";
-}
+      <div class="muted small">“Reasignar a persona actual” usa la persona seleccionada arriba.</div>
+    </div>
+  </div>
 
-btnScanQr?.addEventListener("click", openQrModal);
-btnQrClose?.addEventListener("click", closeQrModal);
-btnQrStart?.addEventListener("click", startQrCamera);
-btnQrStop?.addEventListener("click", stopQrCamera);
+  <div id="qrModal" class="modal hidden">
+    <div class="modalCard">
+      <div class="modalHead">
+        <div class="modalTitle">Escanear Carnet (cámara)</div>
+        <button id="btnQrClose" class="secondary">Cerrar</button>
+      </div>
 
-// Init
-setPersonBox();
-setRadioBox();
-renderResults([]);
-refreshAll().catch(() => setMessage("No conecta con el servidor. ¿Lo iniciaste en /server?", "bad"));
-scanInput.focus();
+      <div class="muted small" id="qrHint">
+        Compatible con Android e iPhone. Permite leer mejor desde cámara del navegador.
+      </div>
+
+      <video
+        id="qrVideo"
+        playsinline
+        muted
+        autoplay
+        style="width:100%; height:320px; object-fit:cover; border-radius:14px; border:1px solid var(--border); margin-top:10px;"
+      ></video>
+
+      <div class="row" style="margin-top:10px">
+        <button id="btnQrStart">Iniciar cámara</button>
+        <button id="btnQrStop" class="secondary">Detener</button>
+      </div>
+
+      <div id="qrMsg" class="muted" style="margin-top:10px"></div>
+    </div>
+  </div>
+
+  <script src="https://unpkg.com/@zxing/library@0.21.3/umd/index.min.js"></script>
+  <script src="app-ios.js"></script>
+</body>
+</html>
