@@ -25,21 +25,25 @@ const SIM_STORAGE_KEY = "smartcountify_store_simulation";
 function getSimulationConfig() {
   try {
     const raw = localStorage.getItem(SIM_STORAGE_KEY);
-    if (!raw) return { enabled: false, storeId: null };
+    if (!raw) {
+        return { enabled: true, storeId: "arrow-01" };
+    }
     const parsed = JSON.parse(raw);
+    
     return {
-      enabled: !!parsed?.enabled,
-      storeId: parsed?.storeId ? String(parsed.storeId) : null,
+      enabled: parsed?.enabled ?? true,
+      storeId: parsed?.storeId ? String(parsed.storeId) : "arrow-01",
     };
+    
   } catch {
-    return { enabled: false, storeId: null };
+    return { enabled: true, storeId: "arrow-01" };
   }
 }
 
 function setSimulationConfig(storeId, enabled) {
   const cfg = {
     enabled: !!enabled,
-    storeId: storeId ? String(storeId) : null,
+    storeId: storeId ? String(storeId) : "arrow-01",
   };
   localStorage.setItem(SIM_STORAGE_KEY, JSON.stringify(cfg));
   return cfg;
