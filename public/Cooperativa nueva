@@ -1,1 +1,51 @@
-setStoreSimulation("arrow-01", true)
+const express = require("express");
+const xml2js = require("xml2js");
+
+const app = express();
+const PORT = 3000;
+
+// Recibir XML como texto
+app.use(express.text({ type: ["application/xml", "text/xml", "*/xml", "*/*"] }));
+
+const parser = new xml2js.Parser({
+  explicitArray: false,
+  mergeAttrs: true,
+  trim: true,
+});
+
+app.post("/", async (req, res) => {
+  try {
+    const rawXml = req.body;
+
+    console.log("\n==============================");
+    console.log("📡 XML recibido del sensor:");
+    console.log(rawXml);
+
+    if (!rawXml || typeof rawXml !== "string") {
+      console.log("⚠️ No llegó contenido XML.");
+      return res.status(400).send("Sin contenido");
+    }
+
+    const parsed = await parser.parseStringPromise(rawXml);
+
+    console.log("\n✅ XML convertido a objeto:");
+    console.log(JSON.stringify(parsed, null, 2));
+    console.log("==============================\n");
+
+    res.status(200).send("OK");
+  } catch (error) {
+    console.error("❌ Error al procesar XML:");
+    console.error(error);
+
+    res.status(500).send("Error procesando XML");
+  }
+});
+
+// Por si quieres probar en navegador
+app.get("/", (req, res) => {
+  res.send("Servidor XML activo");
+});
+
+app.listen(PORT, "0.0.0.0", () => {
+  console.log(`🚀 Servidor escuchando en http://localhost:${PORT}`);
+});
